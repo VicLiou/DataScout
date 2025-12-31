@@ -53,10 +53,15 @@ public class Panel {
 
         JPanel jPanelMain = new JPanel();
         jPanelMain.setLayout(new BoxLayout(jPanelMain, BoxLayout.Y_AXIS));
+        jPanelMain.setBackground(new java.awt.Color(245, 247, 250)); // Light gray background for contrast
+        // Add global padding for a cleaner look
+        jPanelMain.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 25, 20, 25));
 
         // Removed panelSearchAreaTitle as requested
         jPanelMain.add(this.panelSearchArea());
+        jPanelMain.add(javax.swing.Box.createVerticalStrut(15)); // Add spacing
         jPanelMain.add(this.panelDataManagement());
+        jPanelMain.add(javax.swing.Box.createVerticalStrut(10)); // Add spacing
         jPanelMain.add(this.panelTable());
 
         frameElement.add(jPanelMain);
@@ -66,21 +71,31 @@ public class Panel {
     }
 
     private JPanel panelSearchArea() {
-        JPanel searchAreaJPanel = new JPanel();
-        searchAreaJPanel.setBackground(new java.awt.Color(255, 255, 255)); // White background
-        searchAreaJPanel.setLayout(new java.awt.BorderLayout(20, 0)); // Horizontal gap between filters and button
+        JPanel mainPanel = new JPanel(new java.awt.BorderLayout());
+        mainPanel.setBackground(new java.awt.Color(255, 255, 255));
+        // Outer margin removed since main panel handles it, but keep small bottom
+        mainPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 0, 5, 0));
 
-        // Modern TitledBorder styling
-        searchAreaJPanel.setBorder(javax.swing.BorderFactory.createCompoundBorder(
-                javax.swing.BorderFactory.createTitledBorder(
-                        javax.swing.BorderFactory.createLineBorder(new java.awt.Color(226, 232, 240), 1, true), // Subtle
-                                                                                                                // border
-                        " 搜尋過濾器 ",
-                        javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION,
-                        javax.swing.border.TitledBorder.DEFAULT_POSITION,
-                        new java.awt.Font("微軟正黑體", java.awt.Font.BOLD, 16),
-                        new java.awt.Color(66, 133, 244)), // Google Blue for title
-                javax.swing.BorderFactory.createEmptyBorder(15, 25, 15, 25))); // Padding
+        // Toggle Button (Header)
+        JButton toggleButton = new JButton("\u25BC 搜尋過濾器");
+        // Use Dialog font which usually has better Unicode symbol support than CJK
+        // fonts
+        toggleButton.setFont(new java.awt.Font(java.awt.Font.DIALOG, java.awt.Font.BOLD, 16));
+        toggleButton.setForeground(new java.awt.Color(66, 133, 244)); // Google Blue
+        toggleButton.setBorderPainted(false);
+        toggleButton.setContentAreaFilled(false);
+        toggleButton.setFocusPainted(false);
+        toggleButton.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        toggleButton.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
+        // Content Panel (Holds Filters + Action)
+        JPanel contentPanel = new JPanel(new java.awt.BorderLayout(20, 0));
+        contentPanel.setBackground(java.awt.Color.WHITE);
+        // Inner styling (Line border instead of Titled)
+        contentPanel.setBorder(javax.swing.BorderFactory.createCompoundBorder(
+                javax.swing.BorderFactory.createLineBorder(new java.awt.Color(226, 232, 240), 1, true),
+                javax.swing.BorderFactory.createEmptyBorder(15, 15, 15, 15) // inner padding
+        ));
 
         // --- Filters Panel (Left/Center) ---
         JPanel filtersPanel = new JPanel(new java.awt.GridBagLayout());
@@ -119,8 +134,8 @@ public class Panel {
                 comboBox.setMinimumSize(new java.awt.Dimension(100, 35)); // Allow shrinking
                 comboBox.setPreferredSize(new java.awt.Dimension(150, 35)); // Default size
 
-                // Add listener to auto-widen popup
-                comboBox.addPopupMenuListener(new WidePopupMenuListener());
+                // Note: WidePopupMenuListener is added in updateSearchOptions for dynamic
+                // combos
 
                 dynamicComboBoxes.put(colName, comboBox);
 
@@ -146,15 +161,15 @@ public class Panel {
 
             cloudComboBox.setFont(comboFont);
             cloudComboBox.setPreferredSize(new java.awt.Dimension(150, 35));
-            cloudComboBox.addPopupMenuListener(new WidePopupMenuListener());
+            // cloudComboBox.addPopupMenuListener(new WidePopupMenuListener());
 
             apidComboBox.setFont(comboFont);
             apidComboBox.setPreferredSize(new java.awt.Dimension(150, 35));
-            apidComboBox.addPopupMenuListener(new WidePopupMenuListener());
+            // apidComboBox.addPopupMenuListener(new WidePopupMenuListener());
 
             envComboBox.setFont(comboFont);
             envComboBox.setPreferredSize(new java.awt.Dimension(150, 35));
-            envComboBox.addPopupMenuListener(new WidePopupMenuListener());
+            // envComboBox.addPopupMenuListener(new WidePopupMenuListener());
 
             javax.swing.JLabel cloudLabel = jLabelElement.labelCloudeType();
             javax.swing.JLabel apidLabel = jLabelElement.labelApidType();
@@ -205,17 +220,28 @@ public class Panel {
 
         actionPanel.add(searchButton);
 
-        // Add panels to main layout
-        searchAreaJPanel.add(filtersPanel, java.awt.BorderLayout.CENTER);
-        searchAreaJPanel.add(actionPanel, java.awt.BorderLayout.EAST);
+        // Add panels to content panel
+        contentPanel.add(filtersPanel, java.awt.BorderLayout.CENTER);
+        contentPanel.add(actionPanel, java.awt.BorderLayout.EAST);
 
-        return searchAreaJPanel;
+        // Toggle Logic
+        toggleButton.addActionListener(e -> {
+            boolean visible = contentPanel.isVisible();
+            contentPanel.setVisible(!visible);
+            toggleButton.setText(visible ? "\u25B6 搜尋過濾器" : "\u25BC 搜尋過濾器");
+        });
+
+        // Add to main panel
+        mainPanel.add(toggleButton, java.awt.BorderLayout.NORTH);
+        mainPanel.add(contentPanel, java.awt.BorderLayout.CENTER);
+
+        return mainPanel;
     }
 
     private JButton createSearchButton() {
         JButton searchButton = new JButton("查詢");
         searchButton.setFont(new java.awt.Font("微軟正黑體", java.awt.Font.BOLD, 14));
-        searchButton.setBackground(new java.awt.Color(33, 150, 243));
+        searchButton.setBackground(new java.awt.Color(66, 133, 244)); // Google Blue
         searchButton.setForeground(java.awt.Color.WHITE);
         searchButton.setFocusPainted(false);
         searchButton.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 15, 5, 15));
@@ -226,17 +252,35 @@ public class Panel {
 
     private JPanel panelDataManagement() {
         JPanel managementPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        managementPanel.setBackground(new java.awt.Color(245, 247, 250)); // Match main background
+
+        java.awt.Font btnFont = new java.awt.Font("微軟正黑體", java.awt.Font.BOLD, 14);
 
         // 新增按鈕
         addButton = new JButton("新增");
+        addButton.setFont(btnFont);
+        addButton.setBackground(new java.awt.Color(52, 168, 83)); // Google Green
+        addButton.setForeground(java.awt.Color.WHITE);
+        addButton.setFocusPainted(false);
+        addButton.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         addButton.addActionListener(e -> addData());
 
         // 編輯按鈕
         editButton = new JButton("編輯");
+        editButton.setFont(btnFont);
+        editButton.setBackground(new java.awt.Color(241, 196, 15)); // Warm Yellow/Orange
+        editButton.setForeground(java.awt.Color.WHITE);
+        editButton.setFocusPainted(false);
+        editButton.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         editButton.addActionListener(e -> editData());
 
         // 刪除按鈕
         deleteButton = new JButton("刪除");
+        deleteButton.setFont(btnFont);
+        deleteButton.setBackground(new java.awt.Color(234, 67, 53)); // Google Red
+        deleteButton.setForeground(java.awt.Color.WHITE);
+        deleteButton.setFocusPainted(false);
+        deleteButton.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         deleteButton.addActionListener(e -> deleteData());
 
         managementPanel.add(addButton);
@@ -254,6 +298,9 @@ public class Panel {
 
     private JPanel panelTable() {
         JPanel tablePanel = new JPanel(new BorderLayout());
+        // Add style to match search area
+        tablePanel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(226, 232, 240), 1, true));
+        tablePanel.setBackground(java.awt.Color.WHITE);
 
         // 建立表格
         String[] columnNames = { "序號", "APID", "雲", "環境", "到期日", "API KEY", "申請單號" };
@@ -379,10 +426,8 @@ public class Panel {
     private void updateSearchOptions() {
         for (String colName : dynamicComboBoxes.keySet()) {
             javax.swing.JComboBox<String> comboBox = dynamicComboBoxes.get(colName);
-            String selected = (String) comboBox.getSelectedItem();
-
-            comboBox.removeAllItems();
-            comboBox.addItem("ALL");
+            Object selectedObj = comboBox.getSelectedItem();
+            String selected = (selectedObj != null) ? selectedObj.toString() : null;
 
             // Extract unique values
             java.util.Set<String> values = new java.util.TreeSet<>();
@@ -393,17 +438,120 @@ public class Panel {
                 }
             }
 
-            for (String val : values) {
-                comboBox.addItem(val);
+            List<String> fullList = new ArrayList<>();
+            fullList.add("ALL");
+            fullList.addAll(values);
+
+            // Reset model with full list initially
+            comboBox.setModel(new javax.swing.DefaultComboBoxModel<>(fullList.toArray(new String[0])));
+
+            // Fix size stability
+            comboBox.setPrototypeDisplayValue("XXXXXXXXXXXXXXXXXXXX"); // Stable width reference
+
+            // Make searchable
+            setupSearchableComboBox(comboBox, fullList);
+
+            // Re-enable WidePopupMenuListener to fix truncation for long items
+            // Remove existing listeners first to avoid duplicates if any (though unlikely
+            // here as we rebuild)
+            for (javax.swing.event.PopupMenuListener l : comboBox.getPopupMenuListeners()) {
+                if (l instanceof WidePopupMenuListener)
+                    comboBox.removePopupMenuListener(l);
             }
+            comboBox.addPopupMenuListener(new WidePopupMenuListener());
 
             // Restore selection if possible
             if (selected != null) {
-                // Check if selected item still exists (except "ALL")
+                // Check if selected item exists (fuzzy check not needed as we just reloaded
+                // from data)
                 if ("ALL".equals(selected) || values.contains(selected)) {
                     comboBox.setSelectedItem(selected);
                 }
             }
+        }
+    }
+
+    private void setupSearchableComboBox(javax.swing.JComboBox<String> comboBox, List<String> items) {
+        comboBox.setEditable(true);
+
+        // Get Editor Component
+        javax.swing.JTextField editor = (javax.swing.JTextField) comboBox.getEditor().getEditorComponent();
+
+        // Check if we already have a listener
+        SearchableKeyAdapter listener = (SearchableKeyAdapter) comboBox.getClientProperty("SearchableKeyAdapter");
+        if (listener == null) {
+            listener = new SearchableKeyAdapter(comboBox, items);
+            editor.addKeyListener(listener);
+            comboBox.putClientProperty("SearchableKeyAdapter", listener);
+        } else {
+            // Update items
+            listener.setItems(items);
+        }
+    }
+
+    private class SearchableKeyAdapter extends java.awt.event.KeyAdapter {
+        private final javax.swing.JComboBox<String> comboBox;
+        private java.util.List<String> items;
+        private boolean isFiltering = false;
+
+        public SearchableKeyAdapter(javax.swing.JComboBox<String> comboBox, java.util.List<String> items) {
+            this.comboBox = comboBox;
+            this.items = new ArrayList<>(items);
+        }
+
+        public void setItems(java.util.List<String> items) {
+            this.items = new ArrayList<>(items);
+        }
+
+        @Override
+        public void keyReleased(java.awt.event.KeyEvent e) {
+            // Ignore navigation keys
+            if (e.getKeyCode() == java.awt.event.KeyEvent.VK_DOWN ||
+                    e.getKeyCode() == java.awt.event.KeyEvent.VK_UP ||
+                    e.getKeyCode() == java.awt.event.KeyEvent.VK_ENTER) {
+                return;
+            }
+
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                isFiltering = true;
+                javax.swing.JTextField textField = (javax.swing.JTextField) comboBox.getEditor().getEditorComponent();
+                String text = textField.getText();
+                int caretPosition = textField.getCaretPosition();
+
+                // Filter items
+                List<String> filtered = new ArrayList<>();
+                for (String item : items) {
+                    if (item.toLowerCase().contains(text.toLowerCase())) {
+                        filtered.add(item);
+                    }
+                }
+
+                // Update Model
+                javax.swing.DefaultComboBoxModel<String> model = new javax.swing.DefaultComboBoxModel<>(
+                        filtered.toArray(new String[0]));
+                comboBox.setModel(model);
+
+                // Restore text and caret
+                textField.setText(text);
+                try {
+                    textField.setCaretPosition(caretPosition);
+                } catch (Exception ex) {
+                    // Ignore caret errors
+                }
+
+                // Handle Popup
+                if (!filtered.isEmpty()) {
+                    comboBox.showPopup();
+                    // Prevent auto-selection of first item blocking typing
+                    if (comboBox.getItemCount() > 0) {
+                        // comboBox.setSelectedIndex(0); // Optional: select first match? No, interrupts
+                        // typing.
+                    }
+                } else {
+                    comboBox.hidePopup();
+                }
+                isFiltering = false;
+            });
         }
     }
 
@@ -414,7 +562,16 @@ public class Panel {
             // Log search conditions
             StringBuilder sb = new StringBuilder("查詢條件 - ");
             for (String col : searchColumns) {
-                Object selected = dynamicComboBoxes.get(col).getSelectedItem();
+                // Get selected item from editor for editable combo boxes to ensure text match
+                javax.swing.JComboBox<String> cb = dynamicComboBoxes.get(col);
+                Object selectedObj = cb.getSelectedItem();
+
+                // For editable combo box, sometimes getSelectedItem is null or not updated if
+                // text is free-form
+                // But for search filter, we usually want it.
+                // If text field has content, take it?
+                String selected = (selectedObj != null) ? selectedObj.toString() : "ALL";
+
                 sb.append(col).append(": ").append(selected).append(", ");
             }
             System.out.println(sb.toString());
@@ -423,10 +580,17 @@ public class Panel {
             for (ApiKeyData data : allData) {
                 boolean match = true;
                 for (String col : searchColumns) {
-                    String selected = (String) dynamicComboBoxes.get(col).getSelectedItem();
-                    if (selected != null && !"ALL".equals(selected)) {
+                    javax.swing.JComboBox<String> cb = dynamicComboBoxes.get(col);
+                    Object selectedObj = cb.getSelectedItem();
+                    // Fallback to text editor content if selection is null but text exists?
+                    // Usually getSelectedItem() reflects the text in editable CB.
+
+                    String selected = (selectedObj != null) ? selectedObj.toString() : "ALL";
+
+                    if (selected != null && !"ALL".equals(selected) && !selected.trim().isEmpty()) {
                         String val = data.getAttribute(col);
-                        if (val == null || !val.equals(selected)) {
+                        // Exact match or contains? Let's stick to equals for filter values usually.
+                        if (val == null || !val.trim().equals(selected.trim())) {
                             match = false;
                             break;
                         }
@@ -610,7 +774,8 @@ public class Panel {
                 }
                 if (scrollPane != null) {
                     java.awt.Dimension size = popup.getPreferredSize();
-                    int width = size.width;
+                    // Start with 0 to avoid cumulative growth
+                    int contentWidth = 0;
 
                     // Iterate items to find max width
                     javax.swing.ListCellRenderer renderer = box.getRenderer();
@@ -619,13 +784,21 @@ public class Panel {
                         Object value = box.getItemAt(i);
                         java.awt.Component c = renderer.getListCellRendererComponent(new javax.swing.JList(), value, i,
                                 false, false);
-                        width = Math.max(width, c.getPreferredSize().width);
+                        contentWidth = Math.max(contentWidth, c.getPreferredSize().width);
                     }
-                    width += 20; // Scrollbar padding
 
-                    // If calculated width is significantly larger than box width
-                    if (width > box.getWidth()) {
-                        popup.setPreferredSize(new java.awt.Dimension(width, size.height));
+                    // Add padding for scrollbar
+                    contentWidth += 20;
+
+                    // Final width is max of content or box itself
+                    int finalWidth = Math.max(box.getWidth(), contentWidth);
+
+                    // Only adjust if strictly necessary or different, but resetting preferred size
+                    // is safer to prevent stickiness
+                    popup.setPreferredSize(new java.awt.Dimension(finalWidth, size.height));
+
+                    // Ensure layout is handled if not already
+                    if (!(popup.getLayout() instanceof java.awt.BorderLayout)) {
                         popup.setLayout(new java.awt.BorderLayout());
                         popup.add(scrollPane, java.awt.BorderLayout.CENTER);
                     }

@@ -1,5 +1,6 @@
 #Application Settings
-#Tue Dec 02 16:56:32 CST 2025
-minimizeToTray=true
-expiryReminderDays=7
+#Wed Dec 31 14:34:12 GMT+08:00 2025
 autoStart=false
+expiryReminderDays=7
+minimizeToTray=true
+recentFiles=C\:\\Users\\DDAA\\Desktop\\APIKEY.xlsx

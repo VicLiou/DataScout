@@ -25,15 +25,45 @@ import da.api.model.ApiKeyData;
  */
 public class ExcelService {
     private String filePath;
+    private da.api.model.ColumnConfig columnConfig;
 
     public ExcelService(String filePath) {
         this.filePath = filePath;
+    }
+
+    public void setColumnConfig(da.api.model.ColumnConfig config) {
+        this.columnConfig = config;
+    }
+
+    /**
+     * 讀取 Excel 標題列
+     */
+    public List<String> readHeaders() {
+        List<String> headers = new ArrayList<>();
+        try (FileInputStream file = new FileInputStream(filePath);
+                Workbook wb = new XSSFWorkbook(file)) {
+            Sheet ws = wb.getSheetAt(0);
+            Row row = ws.getRow(0);
+            if (row != null) {
+                for (Cell cell : row) {
+                    headers.add(getCellValue(cell));
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return headers;
     }
 
     /**
      * 讀取所有資料
      */
     public List<ApiKeyData> readAllData() {
+        if (columnConfig != null) {
+            return readDataWithConfig();
+        }
+
+        // Legacy reading logic
         List<ApiKeyData> dataList = new ArrayList<>();
 
         try (FileInputStream file = new FileInputStream(filePath);
@@ -86,6 +116,74 @@ public class ExcelService {
             createEmptyExcelFile();
         }
 
+        return dataList;
+    }
+
+    private List<ApiKeyData> readDataWithConfig() {
+        List<ApiKeyData> dataList = new ArrayList<>();
+        List<String> headers = columnConfig.getAllHeaders();
+        String expiryCol = columnConfig.getExpiryDateColumn();
+
+        try (FileInputStream file = new FileInputStream(filePath);
+                Workbook wb = new XSSFWorkbook(file)) {
+
+            Sheet ws = wb.getSheetAt(0);
+
+            // Read header row map (Name -> Index)
+            java.util.Map<String, Integer> headerMap = new java.util.HashMap<>();
+            Row headerRow = ws.getRow(0);
+            if (headerRow != null) {
+                for (Cell cell : headerRow) {
+                    headerMap.put(getCellValue(cell), cell.getColumnIndex());
+                }
+            }
+
+            for (int i = 1; i <= ws.getLastRowNum(); i++) {
+                Row row = ws.getRow(i);
+                if (row == null)
+                    continue;
+
+                ApiKeyData data = new ApiKeyData();
+
+                // Populate dynamic attributes
+                for (String header : headers) {
+                    Integer colIndex = headerMap.get(header);
+                    if (colIndex != null) {
+                        String value = getCellValue(row.getCell(colIndex));
+                        data.setAttribute(header, value);
+                    }
+                }
+
+                // Populate Expiry Date
+                if (expiryCol != null) {
+                    Integer colIndex = headerMap.get(expiryCol);
+                    if (colIndex != null) {
+                        Cell dateCell = row.getCell(colIndex);
+                        if (dateCell != null) {
+                            try {
+                                if (dateCell.getCellType() == CellType.NUMERIC
+                                        && DateUtil.isCellDateFormatted(dateCell)) {
+                                    Date date = dateCell.getDateCellValue();
+                                    data.setExpiryDate(date.toInstant()
+                                            .atZone(ZoneId.systemDefault()).toLocalDate());
+                                } else if (dateCell.getCellType() == CellType.STRING) {
+                                    String dateStr = dateCell.getStringCellValue().trim();
+                                    if (!dateStr.isEmpty() && !dateStr.equals("無")) {
+                                        data.setExpiryDate(parseDateString(dateStr));
+                                    }
+                                }
+                            } catch (Exception e) {
+                                System.err.println("無法解析日期: " + getCellValue(dateCell) + ", 列: " + (i + 1));
+                            }
+                        }
+                    }
+                }
+
+                dataList.add(data);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         return dataList;
     }
 

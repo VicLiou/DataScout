@@ -40,7 +40,7 @@ public class MainFrameView extends JFrame {
     public void showGUI() {
         setUIFont(new FontUIResource("微軟正黑體", Font.PLAIN, 12));
         // 鎖定視窗長寬
-        setResizable(false);
+        setResizable(true);
         setVisible(true);
     }
 

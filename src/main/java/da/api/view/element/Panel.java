@@ -39,14 +39,22 @@ public class Panel {
     private javax.swing.JComboBox<String> envComboBox;
     private List<ApiKeyData> allData;
 
+    private da.api.model.ColumnConfig columnConfig;
+    private java.util.Map<String, javax.swing.JComboBox<String>> dynamicComboBoxes = new java.util.HashMap<>();
+
     public Panel(MainFrameView frameElement, ExcelService excelService) {
+        this(frameElement, excelService, null);
+    }
+
+    public Panel(MainFrameView frameElement, ExcelService excelService, da.api.model.ColumnConfig columnConfig) {
         this.frameElement = frameElement;
         this.excelService = excelService;
+        this.columnConfig = columnConfig;
 
         JPanel jPanelMain = new JPanel();
         jPanelMain.setLayout(new BoxLayout(jPanelMain, BoxLayout.Y_AXIS));
 
-        jPanelMain.add(this.panelSearchAreaTitle());
+        // Removed panelSearchAreaTitle as requested
         jPanelMain.add(this.panelSearchArea());
         jPanelMain.add(this.panelDataManagement());
         jPanelMain.add(this.panelTable());
@@ -57,99 +65,163 @@ public class Panel {
         refreshData();
     }
 
-    private JPanel panelSearchAreaTitle() {
-        Label jLabelElement = new Label();
-        javax.swing.JLabel titleLabel = jLabelElement.labelSearchTitle();
-        titleLabel.setFont(new java.awt.Font("微軟正黑體", java.awt.Font.BOLD, 24));
-        titleLabel.setForeground(new java.awt.Color(50, 50, 50));
-
-        JPanel searchAreaTitlePanel = new JPanel();
-        searchAreaTitlePanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(15, 0, 15, 0));
-        searchAreaTitlePanel.add(titleLabel);
-
-        return searchAreaTitlePanel;
-    }
-
     private JPanel panelSearchArea() {
         JPanel searchAreaJPanel = new JPanel();
+        searchAreaJPanel.setBackground(new java.awt.Color(255, 255, 255)); // White background
+        searchAreaJPanel.setLayout(new java.awt.BorderLayout(20, 0)); // Horizontal gap between filters and button
+
+        // Modern TitledBorder styling
         searchAreaJPanel.setBorder(javax.swing.BorderFactory.createCompoundBorder(
                 javax.swing.BorderFactory.createTitledBorder(
-                        javax.swing.BorderFactory.createLineBorder(new java.awt.Color(200, 200, 200)),
-                        "搜尋過濾器",
+                        javax.swing.BorderFactory.createLineBorder(new java.awt.Color(226, 232, 240), 1, true), // Subtle
+                                                                                                                // border
+                        " 搜尋過濾器 ",
                         javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION,
                         javax.swing.border.TitledBorder.DEFAULT_POSITION,
-                        new java.awt.Font("微軟正黑體", java.awt.Font.PLAIN, 14),
-                        new java.awt.Color(100, 100, 100)),
-                javax.swing.BorderFactory.createEmptyBorder(10, 15, 10, 15)));
+                        new java.awt.Font("微軟正黑體", java.awt.Font.BOLD, 16),
+                        new java.awt.Color(66, 133, 244)), // Google Blue for title
+                javax.swing.BorderFactory.createEmptyBorder(15, 25, 15, 25))); // Padding
 
-        // 初始化相關元件
-        Label jLabelElement = new Label();
-        ComboBox comboBoxElement = new ComboBox();
+        // --- Filters Panel (Left/Center) ---
+        JPanel filtersPanel = new JPanel(new java.awt.GridBagLayout());
+        filtersPanel.setBackground(new java.awt.Color(255, 255, 255));
 
-        // 儲存 ComboBox 實例供查詢使用
-        cloudComboBox = comboBoxElement.comboBoxCloudType();
-        apidComboBox = comboBoxElement.comboBoxApidtype();
-        envComboBox = comboBoxElement.comboBoxEnvtype();
+        java.awt.GridBagConstraints gbc = new java.awt.GridBagConstraints();
+        gbc.insets = new java.awt.Insets(10, 10, 10, 15); // Formatting
+        gbc.anchor = java.awt.GridBagConstraints.WEST;
+        gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
 
-        // 設定字型
-        java.awt.Font labelFont = new java.awt.Font("微軟正黑體", java.awt.Font.PLAIN, 14);
-        javax.swing.JLabel cloudLabel = jLabelElement.labelCloudeType();
-        javax.swing.JLabel apidLabel = jLabelElement.labelApidType();
-        javax.swing.JLabel envLabel = jLabelElement.labelEnvType();
-
-        cloudLabel.setFont(labelFont);
-        apidLabel.setFont(labelFont);
-        envLabel.setFont(labelFont);
-
-        // 美化下拉選單
+        java.awt.Font labelFont = new java.awt.Font("微軟正黑體", java.awt.Font.BOLD, 14);
         java.awt.Font comboFont = new java.awt.Font("微軟正黑體", java.awt.Font.PLAIN, 14);
-        cloudComboBox.setFont(comboFont);
-        apidComboBox.setFont(comboFont);
-        envComboBox.setFont(comboFont);
+        java.awt.Color labelColor = new java.awt.Color(60, 60, 60);
 
-        // 建立查詢按鈕
+        if (columnConfig != null) {
+            // Dynamic Generation
+            List<String> searchColumns = columnConfig.getSearchFilterColumns();
+            int gridX = 0;
+            int gridY = 0;
+
+            for (String colName : searchColumns) {
+                // Label
+                javax.swing.JLabel label = new javax.swing.JLabel(colName + "：");
+                label.setFont(labelFont);
+                label.setForeground(labelColor);
+                gbc.gridx = gridX;
+                gbc.gridy = gridY;
+                gbc.weightx = 0.0;
+                filtersPanel.add(label, gbc);
+
+                // ComboBox
+                javax.swing.JComboBox<String> comboBox = new javax.swing.JComboBox<>();
+                comboBox.addItem("ALL");
+                comboBox.setFont(comboFont);
+                comboBox.setBackground(java.awt.Color.WHITE);
+                comboBox.setMinimumSize(new java.awt.Dimension(100, 35)); // Allow shrinking
+                comboBox.setPreferredSize(new java.awt.Dimension(150, 35)); // Default size
+
+                // Add listener to auto-widen popup
+                comboBox.addPopupMenuListener(new WidePopupMenuListener());
+
+                dynamicComboBoxes.put(colName, comboBox);
+
+                gbc.gridx = gridX + 1;
+                gbc.weightx = 0.5; // Allow expansion
+                filtersPanel.add(comboBox, gbc);
+
+                gridX += 2;
+                // Wrap after 3 pairs or if we have many
+                if (gridX >= 6) {
+                    gridX = 0;
+                    gridY++;
+                }
+            }
+        } else {
+            // Legacy Logic
+            Label jLabelElement = new Label();
+            ComboBox comboBoxElement = new ComboBox();
+
+            cloudComboBox = comboBoxElement.comboBoxCloudType();
+            apidComboBox = comboBoxElement.comboBoxApidtype();
+            envComboBox = comboBoxElement.comboBoxEnvtype();
+
+            cloudComboBox.setFont(comboFont);
+            cloudComboBox.setPreferredSize(new java.awt.Dimension(150, 35));
+            cloudComboBox.addPopupMenuListener(new WidePopupMenuListener());
+
+            apidComboBox.setFont(comboFont);
+            apidComboBox.setPreferredSize(new java.awt.Dimension(150, 35));
+            apidComboBox.addPopupMenuListener(new WidePopupMenuListener());
+
+            envComboBox.setFont(comboFont);
+            envComboBox.setPreferredSize(new java.awt.Dimension(150, 35));
+            envComboBox.addPopupMenuListener(new WidePopupMenuListener());
+
+            javax.swing.JLabel cloudLabel = jLabelElement.labelCloudeType();
+            javax.swing.JLabel apidLabel = jLabelElement.labelApidType();
+            javax.swing.JLabel envLabel = jLabelElement.labelEnvType();
+
+            javax.swing.JLabel[] labels = { cloudLabel, apidLabel, envLabel };
+            for (javax.swing.JLabel lbl : labels) {
+                lbl.setFont(labelFont);
+                lbl.setForeground(labelColor);
+            }
+
+            // Layout Legacy
+            gbc.gridx = 0;
+            gbc.gridy = 0;
+            gbc.weightx = 0.0;
+            filtersPanel.add(cloudLabel, gbc);
+            gbc.gridx = 1;
+            gbc.weightx = 0.5;
+            filtersPanel.add(cloudComboBox, gbc);
+
+            gbc.gridx = 2;
+            gbc.weightx = 0.0;
+            filtersPanel.add(apidLabel, gbc);
+            gbc.gridx = 3;
+            gbc.weightx = 0.5;
+            filtersPanel.add(apidComboBox, gbc);
+
+            gbc.gridx = 4;
+            gbc.weightx = 0.0;
+            filtersPanel.add(envLabel, gbc);
+            gbc.gridx = 5;
+            gbc.weightx = 0.5;
+            filtersPanel.add(envComboBox, gbc);
+        }
+
+        // --- Action Button Panel (Right) ---
+        JPanel actionPanel = new JPanel(new java.awt.GridBagLayout());
+        actionPanel.setBackground(new java.awt.Color(255, 255, 255));
+        // Add a separation line on the left
+        actionPanel.setBorder(javax.swing.BorderFactory.createCompoundBorder(
+                javax.swing.BorderFactory.createMatteBorder(0, 1, 0, 0, new java.awt.Color(230, 230, 240)),
+                javax.swing.BorderFactory.createEmptyBorder(0, 20, 0, 0)));
+
+        JButton searchButton = createSearchButton();
+        // Make the button larger and distinct
+        searchButton.setPreferredSize(new java.awt.Dimension(100, 45));
+        searchButton.setFont(new java.awt.Font("微軟正黑體", java.awt.Font.BOLD, 16));
+
+        actionPanel.add(searchButton);
+
+        // Add panels to main layout
+        searchAreaJPanel.add(filtersPanel, java.awt.BorderLayout.CENTER);
+        searchAreaJPanel.add(actionPanel, java.awt.BorderLayout.EAST);
+
+        return searchAreaJPanel;
+    }
+
+    private JButton createSearchButton() {
         JButton searchButton = new JButton("查詢");
         searchButton.setFont(new java.awt.Font("微軟正黑體", java.awt.Font.BOLD, 14));
-        searchButton.setBackground(new java.awt.Color(33, 150, 243)); // Android Blue
+        searchButton.setBackground(new java.awt.Color(33, 150, 243));
         searchButton.setForeground(java.awt.Color.WHITE);
         searchButton.setFocusPainted(false);
         searchButton.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 15, 5, 15));
         searchButton.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         searchButton.addActionListener(e -> performSearch());
-
-        // 使用 GridBagLayout 進行排版
-        searchAreaJPanel.setLayout(new java.awt.GridBagLayout());
-        java.awt.GridBagConstraints gbc = new java.awt.GridBagConstraints();
-        gbc.insets = new java.awt.Insets(5, 5, 5, 15); // 元件間距
-        gbc.anchor = java.awt.GridBagConstraints.WEST;
-        gbc.fill = java.awt.GridBagConstraints.NONE;
-
-        // 第一個項目: 雲類型
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        searchAreaJPanel.add(cloudLabel, gbc);
-        gbc.gridx = 1;
-        searchAreaJPanel.add(cloudComboBox, gbc);
-
-        // 第二個項目: APID
-        gbc.gridx = 2;
-        searchAreaJPanel.add(apidLabel, gbc);
-        gbc.gridx = 3;
-        searchAreaJPanel.add(apidComboBox, gbc);
-
-        // 第三個項目: 環境
-        gbc.gridx = 4;
-        searchAreaJPanel.add(envLabel, gbc);
-        gbc.gridx = 5;
-        searchAreaJPanel.add(envComboBox, gbc);
-
-        // 查詢按鈕 (放在最後，稍微推開一點)
-        gbc.gridx = 6;
-        gbc.weightx = 1.0; // 佔用剩餘空間
-        gbc.insets = new java.awt.Insets(5, 20, 5, 5);
-        searchAreaJPanel.add(searchButton, gbc);
-
-        return searchAreaJPanel;
+        return searchButton;
     }
 
     private JPanel panelDataManagement() {
@@ -298,40 +370,104 @@ public class Panel {
     private void refreshData() {
         allData = excelService.readAllData();
         currentData = new ArrayList<>(allData);
+        if (columnConfig != null) {
+            updateSearchOptions();
+        }
         updateTable();
     }
 
+    private void updateSearchOptions() {
+        for (String colName : dynamicComboBoxes.keySet()) {
+            javax.swing.JComboBox<String> comboBox = dynamicComboBoxes.get(colName);
+            String selected = (String) comboBox.getSelectedItem();
+
+            comboBox.removeAllItems();
+            comboBox.addItem("ALL");
+
+            // Extract unique values
+            java.util.Set<String> values = new java.util.TreeSet<>();
+            for (ApiKeyData data : allData) {
+                String val = data.getAttribute(colName);
+                if (val != null && !val.trim().isEmpty()) {
+                    values.add(val.trim());
+                }
+            }
+
+            for (String val : values) {
+                comboBox.addItem(val);
+            }
+
+            // Restore selection if possible
+            if (selected != null) {
+                // Check if selected item still exists (except "ALL")
+                if ("ALL".equals(selected) || values.contains(selected)) {
+                    comboBox.setSelectedItem(selected);
+                }
+            }
+        }
+    }
+
     private void performSearch() {
-        String cloudType = (String) cloudComboBox.getSelectedItem();
-        String apiType = (String) apidComboBox.getSelectedItem();
-        String envType = (String) envComboBox.getSelectedItem();
+        if (columnConfig != null) {
+            List<String> searchColumns = columnConfig.getSearchFilterColumns();
 
-        System.out.println("查詢條件 - 雲: " + cloudType + ", APID: " + apiType + ", 環境: " + envType);
-
-        // 篩選資料
-        currentData = new ArrayList<>();
-        for (ApiKeyData data : allData) {
-            boolean match = true;
-
-            // 如果選擇了特定條件才進行篩選 (排除 "ALL" 選項)
-            if (cloudType != null && !"ALL".equals(cloudType)) {
-                if (data.getCloud() == null || !data.getCloud().equals(cloudType)) {
-                    match = false;
-                }
+            // Log search conditions
+            StringBuilder sb = new StringBuilder("查詢條件 - ");
+            for (String col : searchColumns) {
+                Object selected = dynamicComboBoxes.get(col).getSelectedItem();
+                sb.append(col).append(": ").append(selected).append(", ");
             }
-            if (apiType != null && !"ALL".equals(apiType)) {
-                if (data.getApid() == null || !data.getApid().equals(apiType)) {
-                    match = false;
-                }
-            }
-            if (envType != null && !"ALL".equals(envType)) {
-                if (data.getEnvironment() == null || !data.getEnvironment().equals(envType)) {
-                    match = false;
-                }
-            }
+            System.out.println(sb.toString());
 
-            if (match) {
-                currentData.add(data);
+            currentData = new ArrayList<>();
+            for (ApiKeyData data : allData) {
+                boolean match = true;
+                for (String col : searchColumns) {
+                    String selected = (String) dynamicComboBoxes.get(col).getSelectedItem();
+                    if (selected != null && !"ALL".equals(selected)) {
+                        String val = data.getAttribute(col);
+                        if (val == null || !val.equals(selected)) {
+                            match = false;
+                            break;
+                        }
+                    }
+                }
+                if (match)
+                    currentData.add(data);
+            }
+        } else {
+            // Legacy Logic
+            String cloudType = (String) cloudComboBox.getSelectedItem();
+            String apiType = (String) apidComboBox.getSelectedItem();
+            String envType = (String) envComboBox.getSelectedItem();
+
+            System.out.println("查詢條件 - 雲: " + cloudType + ", APID: " + apiType + ", 環境: " + envType);
+
+            // 篩選資料
+            currentData = new ArrayList<>();
+            for (ApiKeyData data : allData) {
+                boolean match = true;
+
+                // 如果選擇了特定條件才進行篩選 (排除 "ALL" 選項)
+                if (cloudType != null && !"ALL".equals(cloudType)) {
+                    if (data.getCloud() == null || !data.getCloud().equals(cloudType)) {
+                        match = false;
+                    }
+                }
+                if (apiType != null && !"ALL".equals(apiType)) {
+                    if (data.getApid() == null || !data.getApid().equals(apiType)) {
+                        match = false;
+                    }
+                }
+                if (envType != null && !"ALL".equals(envType)) {
+                    if (data.getEnvironment() == null || !data.getEnvironment().equals(envType)) {
+                        match = false;
+                    }
+                }
+
+                if (match) {
+                    currentData.add(data);
+                }
             }
         }
 
@@ -343,11 +479,27 @@ public class Panel {
     }
 
     private void updateTable() {
-        String[] columnNames = { "序號", "APID", "雲", "環境", "到期日", "API KEY", "申請單號" };
-        Object[][] data = new Object[currentData.size()][7];
+        String[] columnNames;
+        Object[][] data;
 
-        for (int i = 0; i < currentData.size(); i++) {
-            data[i] = currentData.get(i).toArray(i + 1);
+        if (columnConfig != null) {
+            List<String> headers = columnConfig.getAllHeaders();
+            List<String> tableHeaders = new ArrayList<>();
+            tableHeaders.add("序號");
+            tableHeaders.addAll(headers);
+            columnNames = tableHeaders.toArray(new String[0]);
+
+            data = new Object[currentData.size()][columnNames.length];
+            for (int i = 0; i < currentData.size(); i++) {
+                data[i] = currentData.get(i).toArray(headers, i + 1);
+            }
+        } else {
+            // Legacy
+            columnNames = new String[] { "序號", "APID", "雲", "環境", "到期日", "API KEY", "申請單號" };
+            data = new Object[currentData.size()][7];
+            for (int i = 0; i < currentData.size(); i++) {
+                data[i] = currentData.get(i).toArray(i + 1);
+            }
         }
 
         dataTable.setModel(new javax.swing.table.DefaultTableModel(data, columnNames) {
@@ -357,14 +509,22 @@ public class Panel {
             }
         });
 
-        // 更新後重新設定欄位寬度
-        dataTable.getColumnModel().getColumn(0).setPreferredWidth(50); // 序號
-        dataTable.getColumnModel().getColumn(1).setPreferredWidth(120); // APID
-        dataTable.getColumnModel().getColumn(2).setPreferredWidth(80); // 雲
-        dataTable.getColumnModel().getColumn(3).setPreferredWidth(60); // 環境
-        dataTable.getColumnModel().getColumn(4).setPreferredWidth(100); // 到期日
-        dataTable.getColumnModel().getColumn(5).setPreferredWidth(250); // API KEY
-        dataTable.getColumnModel().getColumn(6).setPreferredWidth(90); // 申請單號
+        // Basic column width adjustment
+        if (dataTable.getColumnCount() > 0) {
+            dataTable.getColumnModel().getColumn(0).setPreferredWidth(50); // 序號
+        }
+
+        if (columnConfig == null) {
+            // Legacy widths
+            if (dataTable.getColumnCount() >= 7) {
+                dataTable.getColumnModel().getColumn(1).setPreferredWidth(120); // APID
+                dataTable.getColumnModel().getColumn(2).setPreferredWidth(80); // 雲
+                dataTable.getColumnModel().getColumn(3).setPreferredWidth(60); // 環境
+                dataTable.getColumnModel().getColumn(4).setPreferredWidth(100); // 到期日
+                dataTable.getColumnModel().getColumn(5).setPreferredWidth(250); // API KEY
+                dataTable.getColumnModel().getColumn(6).setPreferredWidth(90); // 申請單號
+            }
+        }
     }
 
     private void addData() {
@@ -428,6 +588,57 @@ public class Panel {
                 JOptionPane.showMessageDialog(frameElement,
                         "刪除失敗!", "錯誤", JOptionPane.ERROR_MESSAGE);
             }
+        }
+    }
+
+    /**
+     * Listener to force popup menu to expand horizontally to fit content
+     */
+    private class WidePopupMenuListener implements javax.swing.event.PopupMenuListener {
+        @Override
+        public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
+            javax.swing.JComboBox<?> box = (javax.swing.JComboBox<?>) e.getSource();
+            Object comp = box.getUI().getAccessibleChild(box, 0);
+            if (comp instanceof javax.swing.JPopupMenu) {
+                javax.swing.JPopupMenu popup = (javax.swing.JPopupMenu) comp;
+                javax.swing.JScrollPane scrollPane = null;
+                for (java.awt.Component c : popup.getComponents()) {
+                    if (c instanceof javax.swing.JScrollPane) {
+                        scrollPane = (javax.swing.JScrollPane) c;
+                        break;
+                    }
+                }
+                if (scrollPane != null) {
+                    java.awt.Dimension size = popup.getPreferredSize();
+                    int width = size.width;
+
+                    // Iterate items to find max width
+                    javax.swing.ListCellRenderer renderer = box.getRenderer();
+                    // Use raw type to avoid generic issues in this context
+                    for (int i = 0; i < box.getItemCount(); i++) {
+                        Object value = box.getItemAt(i);
+                        java.awt.Component c = renderer.getListCellRendererComponent(new javax.swing.JList(), value, i,
+                                false, false);
+                        width = Math.max(width, c.getPreferredSize().width);
+                    }
+                    width += 20; // Scrollbar padding
+
+                    // If calculated width is significantly larger than box width
+                    if (width > box.getWidth()) {
+                        popup.setPreferredSize(new java.awt.Dimension(width, size.height));
+                        popup.setLayout(new java.awt.BorderLayout());
+                        popup.add(scrollPane, java.awt.BorderLayout.CENTER);
+                    }
+                }
+            }
+        }
+
+        @Override
+        public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {
+        }
+
+        @Override
+        public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {
         }
     }
 }

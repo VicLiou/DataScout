@@ -35,6 +35,7 @@ public class App {
             AppSettings appSettings = new AppSettings();
 
             // 選擇資料來源
+            // 選擇資料來源
             da.api.view.FileSelectionDialog dialog = new da.api.view.FileSelectionDialog(appSettings.getRecentFiles());
             dialog.setVisible(true);
 
@@ -51,6 +52,23 @@ public class App {
             logger.info("初始化服務...");
             UserService userService = new UserService();
             ExcelService excelService = new ExcelService(selectedPath);
+
+            // 讀取 Excel 標題並讓使用者設定欄位
+            java.util.List<String> headers = excelService.readHeaders();
+            da.api.model.ColumnConfig config = null;
+
+            if (headers != null && !headers.isEmpty()) {
+                da.api.view.ColumnConfigDialog configDialog = new da.api.view.ColumnConfigDialog(headers);
+                configDialog.setVisible(true);
+
+                if (configDialog.isConfirmed()) {
+                    config = configDialog.getConfig();
+                    excelService.setColumnConfig(config);
+                } else {
+                    System.exit(0); // 使用者取消設定
+                }
+            }
+
             logger.info("服務初始化完成");
 
             // 直接建立主視窗（不需要登入）
@@ -61,7 +79,7 @@ public class App {
             @SuppressWarnings("unused")
             MenuBar menuBar = new MenuBar(jframe, appSettings);
             @SuppressWarnings("unused")
-            Panel panel = new Panel(jframe, excelService);
+            Panel panel = new Panel(jframe, excelService, config);
             logger.info("主視窗元件建立完成");
 
             // 設定系統托盤

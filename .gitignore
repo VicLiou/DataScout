@@ -22,3 +22,13 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Markdown documentation (exclude all except README.md)
+*.md
+!README.md
+
+# Dependency tree output
+deps.txt
+
+# Maven target directory
+target/

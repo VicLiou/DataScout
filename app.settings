@@ -1,0 +1,5 @@
+#Application Settings
+#Tue Dec 02 16:56:32 CST 2025
+minimizeToTray=true
+expiryReminderDays=7
+autoStart=false

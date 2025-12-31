@@ -5,7 +5,7 @@ import javax.swing.JComboBox;
 public class ComboBox {
 
     public JComboBox<String> comboBoxCloudType() {
-        String[] options = { "我要全部!!", "中台雲", "資訊雲", "數位雲", "APIM" };
+        String[] options = { "ALL", "中台雲", "資訊雲", "數位雲", "APIM" };
         JComboBox<String> cloudeTypeComboBox = new JComboBox<>(options);
 
         cloudeTypeComboBox.addActionListener(e -> {
@@ -17,7 +17,7 @@ public class ComboBox {
     }
 
     public JComboBox<String> comboBoxApidtype() {
-        String[] options = { "我要全部!!", "MID-LX-MDP-01", "MID-LX-MIP-01", "CRD-NT-CAP-12", "BRN-LX-DBS-01",
+        String[] options = { "ALL", "MID-LX-MDP-01", "MID-LX-MIP-01", "CRD-NT-CAP-12", "BRN-LX-DBS-01",
                 "BRN-LX-DBT-01" };
         JComboBox<String> apidTypeComboBox = new JComboBox<>(options);
 
@@ -30,7 +30,7 @@ public class ComboBox {
     }
 
     public JComboBox<String> comboBoxEnvtype() {
-        String[] options = { "我要全部!!", "UT", "UAT", "PROD" };
+        String[] options = { "ALL", "UT", "UAT", "PROD" };
         JComboBox<String> envTypeComboBox = new JComboBox<>(options);
 
         envTypeComboBox.addActionListener(e -> {

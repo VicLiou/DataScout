@@ -16,7 +16,7 @@ public class MainFrameView extends JFrame {
     private UserService userService;
 
     public MainFrameView(UserService userService) {
-        super("API KEY 服務台");
+        super("DataScout");
         this.userService = userService;
         setSize(800, 500);
         // 關閉後程式將退出，不會在後台運行

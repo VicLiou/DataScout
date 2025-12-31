@@ -29,7 +29,7 @@ public class App {
         SwingUtilities.invokeLater(() -> {
             LogManager logger = LogManager.getInstance();
             logger.info("======================================");
-            logger.info("API KEY 服務台應用程式啟動中...");
+            logger.info("DataScout 工具啟動中...");
 
             // 初始化設定
             AppSettings appSettings = new AppSettings();

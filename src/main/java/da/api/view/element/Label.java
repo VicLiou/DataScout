@@ -5,7 +5,7 @@ import javax.swing.JLabel;
 public class Label {
 
     public JLabel labelSearchTitle() {
-        return addLabel("API KEY查詢");
+        return addLabel("資料查詢");
     }
 
     public JLabel labelCloudeType() {

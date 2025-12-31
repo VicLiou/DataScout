@@ -58,17 +58,29 @@ public class Panel {
     }
 
     private JPanel panelSearchAreaTitle() {
-
         Label jLabelElement = new Label();
+        javax.swing.JLabel titleLabel = jLabelElement.labelSearchTitle();
+        titleLabel.setFont(new java.awt.Font("微軟正黑體", java.awt.Font.BOLD, 24));
+        titleLabel.setForeground(new java.awt.Color(50, 50, 50));
 
         JPanel searchAreaTitlePanel = new JPanel();
-        searchAreaTitlePanel.add(jLabelElement.labelSearchTitle());
+        searchAreaTitlePanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(15, 0, 15, 0));
+        searchAreaTitlePanel.add(titleLabel);
 
         return searchAreaTitlePanel;
     }
 
     private JPanel panelSearchArea() {
         JPanel searchAreaJPanel = new JPanel();
+        searchAreaJPanel.setBorder(javax.swing.BorderFactory.createCompoundBorder(
+                javax.swing.BorderFactory.createTitledBorder(
+                        javax.swing.BorderFactory.createLineBorder(new java.awt.Color(200, 200, 200)),
+                        "搜尋過濾器",
+                        javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION,
+                        javax.swing.border.TitledBorder.DEFAULT_POSITION,
+                        new java.awt.Font("微軟正黑體", java.awt.Font.PLAIN, 14),
+                        new java.awt.Color(100, 100, 100)),
+                javax.swing.BorderFactory.createEmptyBorder(10, 15, 10, 15)));
 
         // 初始化相關元件
         Label jLabelElement = new Label();
@@ -79,21 +91,63 @@ public class Panel {
         apidComboBox = comboBoxElement.comboBoxApidtype();
         envComboBox = comboBoxElement.comboBoxEnvtype();
 
+        // 設定字型
+        java.awt.Font labelFont = new java.awt.Font("微軟正黑體", java.awt.Font.PLAIN, 14);
+        javax.swing.JLabel cloudLabel = jLabelElement.labelCloudeType();
+        javax.swing.JLabel apidLabel = jLabelElement.labelApidType();
+        javax.swing.JLabel envLabel = jLabelElement.labelEnvType();
+
+        cloudLabel.setFont(labelFont);
+        apidLabel.setFont(labelFont);
+        envLabel.setFont(labelFont);
+
+        // 美化下拉選單
+        java.awt.Font comboFont = new java.awt.Font("微軟正黑體", java.awt.Font.PLAIN, 14);
+        cloudComboBox.setFont(comboFont);
+        apidComboBox.setFont(comboFont);
+        envComboBox.setFont(comboFont);
+
         // 建立查詢按鈕
         JButton searchButton = new JButton("查詢");
+        searchButton.setFont(new java.awt.Font("微軟正黑體", java.awt.Font.BOLD, 14));
+        searchButton.setBackground(new java.awt.Color(33, 150, 243)); // Android Blue
+        searchButton.setForeground(java.awt.Color.WHITE);
+        searchButton.setFocusPainted(false);
+        searchButton.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 15, 5, 15));
+        searchButton.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         searchButton.addActionListener(e -> performSearch());
 
-        // 將相關元件加入 Panel
-        searchAreaJPanel.add(jLabelElement.labelCloudeType());
-        searchAreaJPanel.add(cloudComboBox);
-        searchAreaJPanel.add(jLabelElement.labelApidType());
-        searchAreaJPanel.add(apidComboBox);
-        searchAreaJPanel.add(jLabelElement.labelEnvType());
-        searchAreaJPanel.add(envComboBox);
-        searchAreaJPanel.add(searchButton);
+        // 使用 GridBagLayout 進行排版
+        searchAreaJPanel.setLayout(new java.awt.GridBagLayout());
+        java.awt.GridBagConstraints gbc = new java.awt.GridBagConstraints();
+        gbc.insets = new java.awt.Insets(5, 5, 5, 15); // 元件間距
+        gbc.anchor = java.awt.GridBagConstraints.WEST;
+        gbc.fill = java.awt.GridBagConstraints.NONE;
 
-        // 設定 BoxLayout 佈局
-        searchAreaJPanel.setLayout(new BoxLayout(searchAreaJPanel, BoxLayout.X_AXIS));
+        // 第一個項目: 雲類型
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        searchAreaJPanel.add(cloudLabel, gbc);
+        gbc.gridx = 1;
+        searchAreaJPanel.add(cloudComboBox, gbc);
+
+        // 第二個項目: APID
+        gbc.gridx = 2;
+        searchAreaJPanel.add(apidLabel, gbc);
+        gbc.gridx = 3;
+        searchAreaJPanel.add(apidComboBox, gbc);
+
+        // 第三個項目: 環境
+        gbc.gridx = 4;
+        searchAreaJPanel.add(envLabel, gbc);
+        gbc.gridx = 5;
+        searchAreaJPanel.add(envComboBox, gbc);
+
+        // 查詢按鈕 (放在最後，稍微推開一點)
+        gbc.gridx = 6;
+        gbc.weightx = 1.0; // 佔用剩餘空間
+        gbc.insets = new java.awt.Insets(5, 20, 5, 5);
+        searchAreaJPanel.add(searchButton, gbc);
 
         return searchAreaJPanel;
     }
@@ -259,18 +313,18 @@ public class Panel {
         for (ApiKeyData data : allData) {
             boolean match = true;
 
-            // 如果選擇了特定條件才進行篩選 (排除 "我要全部!!" 選項)
-            if (cloudType != null && !"我要全部!!".equals(cloudType)) {
+            // 如果選擇了特定條件才進行篩選 (排除 "ALL" 選項)
+            if (cloudType != null && !"ALL".equals(cloudType)) {
                 if (data.getCloud() == null || !data.getCloud().equals(cloudType)) {
                     match = false;
                 }
             }
-            if (apiType != null && !"我要全部!!".equals(apiType)) {
+            if (apiType != null && !"ALL".equals(apiType)) {
                 if (data.getApid() == null || !data.getApid().equals(apiType)) {
                     match = false;
                 }
             }
-            if (envType != null && !"我要全部!!".equals(envType)) {
+            if (envType != null && !"ALL".equals(envType)) {
                 if (data.getEnvironment() == null || !data.getEnvironment().equals(envType)) {
                     match = false;
                 }

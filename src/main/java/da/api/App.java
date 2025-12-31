@@ -19,6 +19,13 @@ import da.api.view.element.Panel;
  */
 public class App {
     public static void main(String[] args) {
+        // Force UTF-8 encoding for console output
+        try {
+            System.setOut(new java.io.PrintStream(System.out, true, "UTF-8"));
+        } catch (java.io.UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+
         SwingUtilities.invokeLater(() -> {
             LogManager logger = LogManager.getInstance();
             logger.info("======================================");

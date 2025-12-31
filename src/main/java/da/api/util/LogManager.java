@@ -11,55 +11,55 @@ import java.util.List;
 public class LogManager {
     private static LogManager instance;
     private List<LogEntry> logs;
-    private List<LogListener> listeners;
+    private java.util.concurrent.CopyOnWriteArrayList<LogListener> listeners;
     private static final int MAX_LOGS = 1000; // 最多保存 1000 條日誌
-    
+
     private LogManager() {
         logs = new ArrayList<>();
-        listeners = new ArrayList<>();
+        listeners = new java.util.concurrent.CopyOnWriteArrayList<>();
     }
-    
+
     public static synchronized LogManager getInstance() {
         if (instance == null) {
             instance = new LogManager();
         }
         return instance;
     }
-    
+
     /**
      * 記錄一般訊息
      */
     public void info(String message) {
         addLog(LogLevel.INFO, message);
     }
-    
+
     /**
      * 記錄警告訊息
      */
     public void warn(String message) {
         addLog(LogLevel.WARN, message);
     }
-    
+
     /**
      * 記錄錯誤訊息
      */
     public void error(String message) {
         addLog(LogLevel.ERROR, message);
     }
-    
+
     /**
      * 記錄錯誤訊息（含例外）
      */
     public void error(String message, Exception e) {
         addLog(LogLevel.ERROR, message + ": " + e.getMessage());
     }
-    
+
     /**
      * 新增日誌
      */
     private void addLog(LogLevel level, String message) {
         LogEntry entry = new LogEntry(level, message);
-        
+
         synchronized (logs) {
             logs.add(entry);
             // 限制日誌數量
@@ -67,14 +67,14 @@ public class LogManager {
                 logs.remove(0);
             }
         }
-        
+
         // 同時輸出到控制台
         System.out.println(entry.toString());
-        
+
         // 通知所有監聽器
         notifyListeners(entry);
     }
-    
+
     /**
      * 取得所有日誌
      */
@@ -83,7 +83,7 @@ public class LogManager {
             return new ArrayList<>(logs);
         }
     }
-    
+
     /**
      * 清除所有日誌
      */
@@ -93,21 +93,21 @@ public class LogManager {
         }
         notifyListeners(null);
     }
-    
+
     /**
      * 新增日誌監聽器
      */
     public void addListener(LogListener listener) {
         listeners.add(listener);
     }
-    
+
     /**
      * 移除日誌監聽器
      */
     public void removeListener(LogListener listener) {
         listeners.remove(listener);
     }
-    
+
     /**
      * 通知所有監聽器
      */
@@ -116,7 +116,7 @@ public class LogManager {
             listener.onLogAdded(entry);
         }
     }
-    
+
     /**
      * 日誌級別
      */
@@ -124,18 +124,18 @@ public class LogManager {
         INFO("資訊"),
         WARN("警告"),
         ERROR("錯誤");
-        
+
         private String displayName;
-        
+
         LogLevel(String displayName) {
             this.displayName = displayName;
         }
-        
+
         public String getDisplayName() {
             return displayName;
         }
     }
-    
+
     /**
      * 日誌條目
      */
@@ -143,35 +143,35 @@ public class LogManager {
         private LocalDateTime timestamp;
         private LogLevel level;
         private String message;
-        
+
         public LogEntry(LogLevel level, String message) {
             this.timestamp = LocalDateTime.now();
             this.level = level;
             this.message = message;
         }
-        
+
         public LocalDateTime getTimestamp() {
             return timestamp;
         }
-        
+
         public LogLevel getLevel() {
             return level;
         }
-        
+
         public String getMessage() {
             return message;
         }
-        
+
         @Override
         public String toString() {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            return String.format("[%s] [%s] %s", 
-                timestamp.format(formatter), 
-                level.getDisplayName(), 
-                message);
+            return String.format("[%s] [%s] %s",
+                    timestamp.format(formatter),
+                    level.getDisplayName(),
+                    message);
         }
     }
-    
+
     /**
      * 日誌監聽器接口
      */

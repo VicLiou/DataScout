@@ -58,15 +58,42 @@ public class App {
             da.api.model.ColumnConfig config = null;
 
             if (headers != null && !headers.isEmpty()) {
-                da.api.view.ColumnConfigDialog configDialog = new da.api.view.ColumnConfigDialog(headers);
-                configDialog.setVisible(true);
+                // Check for saved configuration
+                da.api.model.ColumnConfig savedConfig = appSettings.getColumnConfig(selectedPath);
+                boolean useSaved = false;
 
-                if (configDialog.isConfirmed()) {
-                    config = configDialog.getConfig();
-                    excelService.setColumnConfig(config);
-                } else {
-                    System.exit(0); // 使用者取消設定
+                if (savedConfig != null) {
+                    int choice = javax.swing.JOptionPane.showConfirmDialog(null,
+                            "偵測到此檔案已有儲存的欄位設定。\n是否使用之前的設定？",
+                            "載入設定",
+                            javax.swing.JOptionPane.YES_NO_OPTION,
+                            javax.swing.JOptionPane.QUESTION_MESSAGE);
+
+                    if (choice == javax.swing.JOptionPane.YES_OPTION) {
+                        config = savedConfig;
+                        config.setAllHeaders(headers); // Set headers as they are not saved
+                        useSaved = true;
+                    }
                 }
+
+                if (!useSaved) {
+                    da.api.view.ColumnConfigDialog configDialog = new da.api.view.ColumnConfigDialog(headers);
+                    configDialog.setVisible(true);
+
+                    if (configDialog.isConfirmed()) {
+                        config = configDialog.getConfig();
+                        // Save the new configuration
+                        appSettings.saveColumnConfig(selectedPath, config);
+                    } else {
+                        // User cancelled configuration
+                        logger.info("使用者取消欄位設定");
+                        System.exit(0);
+                    }
+                }
+            }
+
+            if (config != null) {
+                excelService.setColumnConfig(config);
             }
 
             logger.info("服務初始化完成");

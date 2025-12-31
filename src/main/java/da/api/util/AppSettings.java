@@ -99,4 +99,33 @@ public class AppSettings {
         properties.setProperty("recentFiles", String.join(";", files));
         saveSettings();
     }
+
+    public da.api.model.ColumnConfig getColumnConfig(String filePath) {
+        String keyHash = String.valueOf(filePath.hashCode());
+        String expiryCol = properties.getProperty("config." + keyHash + ".expiry");
+        String filterCols = properties.getProperty("config." + keyHash + ".filters");
+
+        if (expiryCol != null && filterCols != null) {
+            java.util.List<String> filters = new java.util.ArrayList<>();
+            if (!filterCols.isEmpty()) {
+                filters.addAll(java.util.Arrays.asList(filterCols.split(";")));
+            }
+            // Note: allHeaders is transient/structural, not saved. It will be re-populated
+            // by ExcelService or passed empty here.
+            // Since ColumnConfig usually needs allHeaders to validate or display, but
+            // strictly for prompt we might just load preferences.
+            // Actually, we pass this config to ExcelService/Panel.
+            // We should just fill what we have. ExcelService will read headers from file
+            // anyway.
+            return new da.api.model.ColumnConfig(expiryCol, filters, new java.util.ArrayList<>());
+        }
+        return null;
+    }
+
+    public void saveColumnConfig(String filePath, da.api.model.ColumnConfig config) {
+        String keyHash = String.valueOf(filePath.hashCode());
+        properties.setProperty("config." + keyHash + ".expiry", config.getExpiryDateColumn());
+        properties.setProperty("config." + keyHash + ".filters", String.join(";", config.getSearchFilterColumns()));
+        saveSettings();
+    }
 }

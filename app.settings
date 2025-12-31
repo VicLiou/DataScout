@@ -1,6 +1,8 @@
 #Application Settings
-#Wed Dec 31 17:15:29 GMT+08:00 2025
+#Wed Dec 31 17:22:49 GMT+08:00 2025
 autoStart=false
+config.1650641183.expiry=\u5230\u671F\u65E5
+config.1650641183.filters=APID;\u96F2;\u74B0\u5883;API KEY;\u7533\u8ACB\u55AE\u865F
 expiryReminderDays=7
 minimizeToTray=true
 recentFiles=C\:\\Users\\DDAA\\Desktop\\APIKEY.xlsx

@@ -41,6 +41,7 @@ public class Panel {
 
     private da.api.model.ColumnConfig columnConfig;
     private JPanel filtersPanel;
+    private da.api.util.AppSettings appSettings;
     private java.util.Map<String, javax.swing.JComboBox<String>> dynamicComboBoxes = new java.util.HashMap<>();
 
     public Panel(MainFrameView frameElement, ExcelService excelService) {
@@ -51,6 +52,7 @@ public class Panel {
         this.frameElement = frameElement;
         this.excelService = excelService;
         this.columnConfig = columnConfig;
+        this.appSettings = new da.api.util.AppSettings();
 
         JPanel jPanelMain = new JPanel();
         jPanelMain.setLayout(new BoxLayout(jPanelMain, BoxLayout.Y_AXIS));
@@ -705,6 +707,12 @@ public class Panel {
             }
         });
 
+        // Expiry Row Highlighting
+        RowExpiryRenderer renderer = new RowExpiryRenderer();
+        for (int i = 0; i < dataTable.getColumnCount(); i++) {
+            dataTable.getColumnModel().getColumn(i).setCellRenderer(renderer);
+        }
+
         // Basic column width adjustment
         if (dataTable.getColumnCount() > 0) {
             dataTable.getColumnModel().getColumn(0).setPreferredWidth(50); // 序號
@@ -720,6 +728,77 @@ public class Panel {
                 dataTable.getColumnModel().getColumn(5).setPreferredWidth(250); // API KEY
                 dataTable.getColumnModel().getColumn(6).setPreferredWidth(90); // 申請單號
             }
+        }
+    }
+
+    private class ExpiryDateRenderer extends javax.swing.table.DefaultTableCellRenderer {
+        @Override
+        public java.awt.Component getTableCellRendererComponent(JTable table, Object value,
+                boolean isSelected, boolean hasFocus, int row, int column) {
+            java.awt.Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
+            if (!isSelected && value != null) {
+                String dateStr = value.toString();
+                try {
+                    // Try parsing date. Format should be yyyy-MM-dd
+                    java.time.LocalDate date = java.time.LocalDate.parse(dateStr);
+                    java.time.LocalDate today = java.time.LocalDate.now();
+                    long days = java.time.temporal.ChronoUnit.DAYS.between(today, date);
+
+                    if (days >= 0 && days <= appSettings.getExpiryReminderDays()) {
+                        c.setBackground(new java.awt.Color(255, 243, 205)); // Light Yellow
+                        c.setForeground(new java.awt.Color(133, 100, 4)); // Darker yellow/brown text
+                    } else {
+                        c.setBackground(java.awt.Color.WHITE);
+                        c.setForeground(java.awt.Color.BLACK);
+                    }
+                } catch (Exception e) {
+                    // Not a date or parse error, ignore
+                    c.setBackground(java.awt.Color.WHITE);
+                    c.setForeground(java.awt.Color.BLACK);
+                }
+            } else if (isSelected) {
+                // Keep selection color
+                c.setBackground(table.getSelectionBackground());
+                c.setForeground(table.getSelectionForeground());
+            }
+            return c;
+        }
+    }
+
+    private class RowExpiryRenderer extends javax.swing.table.DefaultTableCellRenderer {
+        @Override
+        public java.awt.Component getTableCellRendererComponent(JTable table, Object value,
+                boolean isSelected, boolean hasFocus, int row, int column) {
+            java.awt.Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
+            if (!isSelected) {
+                // Default colors
+                c.setBackground(java.awt.Color.WHITE);
+                c.setForeground(java.awt.Color.BLACK);
+
+                if (currentData != null && row >= 0 && row < currentData.size()) {
+                    try {
+                        da.api.model.ApiKeyData data = currentData.get(row);
+                        if (data.getExpiryDate() != null) {
+                            long days = java.time.temporal.ChronoUnit.DAYS.between(java.time.LocalDate.now(),
+                                    data.getExpiryDate());
+
+                            if (days >= 0 && days <= appSettings.getExpiryReminderDays()) {
+                                c.setBackground(new java.awt.Color(255, 243, 205)); // Light Yellow
+                                c.setForeground(new java.awt.Color(133, 100, 4)); // Darker yellow/brown text
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Ignore model errors
+                    }
+                }
+            } else {
+                // Keep selection color
+                c.setBackground(table.getSelectionBackground());
+                c.setForeground(table.getSelectionForeground());
+            }
+            return c;
         }
     }
 

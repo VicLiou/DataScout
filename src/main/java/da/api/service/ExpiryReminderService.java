@@ -59,35 +59,63 @@ public class ExpiryReminderService {
         message.append("以下 API KEY 即將到期:\n\n");
 
         LocalDate today = LocalDate.now();
+        da.api.model.ColumnConfig config = excelService.getColumnConfig();
+
         for (ApiKeyData item : expiringItems) {
             long daysUntilExpiry = ChronoUnit.DAYS.between(today, item.getExpiryDate());
+            String displayInfo = null;
 
-            String displayInfo;
-            if (item.getCloud() != null || item.getApid() != null) {
-                displayInfo = (item.getCloud() == null ? "" : item.getCloud()) +
-                        (item.getApid() == null ? "" : " - " + item.getApid());
-            } else {
-                // Use first attribute found or something generic
-                displayInfo = item.getAttribute("APID"); // Try to find APID by name
-                if (displayInfo == null) {
-                    // Just grab the first few values from attributes map
-                    displayInfo = item.getExpiryDate().toString();
-                    // This is weak. Let's try to get ANY value.
-                    // But ApiKeyData doesn't expose keys easily without headers.
-                    // But we have attributes map.
+            if (config != null && config.getAllHeaders() != null) {
+                // Try to build a label from Search Filter Columns or just the first few columns
+                List<String> labelCols = config.getSearchFilterColumns();
+                if (labelCols == null || labelCols.isEmpty()) {
+                    // Fallback to first column that is NOT expiry date
+                    String expiryCol = config.getExpiryDateColumn();
+                    for (String header : config.getAllHeaders()) {
+                        if (!header.equals(expiryCol)) {
+                            String val = item.getAttribute(header);
+                            if (val != null && !val.isEmpty()) {
+                                displayInfo = header + ": " + val;
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    // Use configured search filters as label
+                    StringBuilder sb = new StringBuilder();
+                    for (String col : labelCols) {
+                        String val = item.getAttribute(col);
+                        if (val != null && !val.isEmpty()) {
+                            if (sb.length() > 0)
+                                sb.append(", ");
+                            sb.append(val);
+                        }
+                    }
+                    if (sb.length() > 0)
+                        displayInfo = sb.toString();
                 }
             }
 
-            // Allow printing attributes directly if legacy fields are empty
-            if (item.getCloud() == null && item.getApid() == null) {
-                // Try to construct a meaningful label.
-                // Since we don't have the config here easily, we rely on what's in attributes.
-                // Let's just use "Item expiring on [Date]"
-                displayInfo = "項目";
+            if (displayInfo == null) {
+                // Legacy fallback
+                if (item.getCloud() != null || item.getApid() != null) {
+                    displayInfo = (item.getCloud() == null ? "" : item.getCloud()) +
+                            (item.getApid() == null ? "" : " - " + item.getApid());
+                }
             }
 
-            message.append(String.format("• %s (%d 天後到期)\n",
+            if (displayInfo == null || displayInfo.isEmpty()) {
+                displayInfo = "未命名項目";
+            }
+
+            // Truncate if too long
+            if (displayInfo.length() > 50) {
+                displayInfo = displayInfo.substring(0, 47) + "...";
+            }
+
+            message.append(String.format("• %s\n  到期日: %s (%d 天後)\n",
                     displayInfo,
+                    item.getExpiryDate().toString(),
                     daysUntilExpiry));
         }
 

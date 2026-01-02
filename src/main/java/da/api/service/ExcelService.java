@@ -35,6 +35,10 @@ public class ExcelService {
         this.columnConfig = config;
     }
 
+    public da.api.model.ColumnConfig getColumnConfig() {
+        return columnConfig;
+    }
+
     /**
      * 讀取 Excel 標題列
      */
@@ -208,6 +212,75 @@ public class ExcelService {
      * 儲存所有資料
      */
     public boolean saveAllData(List<ApiKeyData> dataList) {
+        if (columnConfig != null && columnConfig.getAllHeaders() != null && !columnConfig.getAllHeaders().isEmpty()) {
+            return saveAllDataWithConfig(dataList);
+        } else {
+            return saveAllDataLegacy(dataList);
+        }
+    }
+
+    private boolean saveAllDataWithConfig(List<ApiKeyData> dataList) {
+        try (Workbook wb = new XSSFWorkbook()) {
+            Sheet ws = wb.createSheet("API Keys");
+
+            // 寫入標題列
+            Row headerRow = ws.createRow(0);
+            List<String> headers = columnConfig.getAllHeaders();
+            for (int i = 0; i < headers.size(); i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers.get(i));
+            }
+
+            String expiryCol = columnConfig.getExpiryDateColumn();
+
+            // 寫入資料
+            for (int i = 0; i < dataList.size(); i++) {
+                Row row = ws.createRow(i + 1);
+                ApiKeyData data = dataList.get(i);
+
+                for (int j = 0; j < headers.size(); j++) {
+                    String header = headers.get(j);
+                    Cell cell = row.createCell(j);
+
+                    if (header.equals(expiryCol)) {
+                        // 處理到期日格式
+                        if (data.getExpiryDate() != null) {
+                            Date date = Date.from(data.getExpiryDate()
+                                    .atStartOfDay(ZoneId.systemDefault()).toInstant());
+                            cell.setCellValue(date);
+
+                            CellStyle dateCellStyle = wb.createCellStyle();
+                            CreationHelper createHelper = wb.getCreationHelper();
+                            dateCellStyle.setDataFormat(
+                                    createHelper.createDataFormat().getFormat("yyyy-mm-dd"));
+                            cell.setCellStyle(dateCellStyle);
+                        }
+                    } else {
+                        // 處理動態屬性
+                        String value = data.getAttribute(header);
+                        cell.setCellValue(value != null ? value : "");
+                    }
+                }
+            }
+
+            // 自動調整欄寬
+            for (int i = 0; i < headers.size(); i++) {
+                ws.autoSizeColumn(i);
+            }
+
+            // 寫入檔案
+            try (FileOutputStream fos = new FileOutputStream(filePath)) {
+                wb.write(fos);
+            }
+
+            return true;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private boolean saveAllDataLegacy(List<ApiKeyData> dataList) {
         try (Workbook wb = new XSSFWorkbook()) {
             Sheet ws = wb.createSheet("API Keys");
 
@@ -272,6 +345,10 @@ public class ExcelService {
             case STRING:
                 return cell.getStringCellValue();
             case NUMERIC:
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
+                    return sdf.format(cell.getDateCellValue());
+                }
                 return String.valueOf((long) cell.getNumericCellValue());
             case BOOLEAN:
                 return String.valueOf(cell.getBooleanCellValue());

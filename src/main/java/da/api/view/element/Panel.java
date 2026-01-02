@@ -692,7 +692,7 @@ public class Panel {
     }
 
     private void addData() {
-        DataEditDialog dialog = new DataEditDialog(frameElement, null, true);
+        DataEditDialog dialog = new DataEditDialog(frameElement, null, true, columnConfig);
         dialog.setVisible(true);
 
         if (dialog.isConfirmed()) {
@@ -716,7 +716,7 @@ public class Panel {
         }
 
         ApiKeyData selectedData = currentData.get(selectedRow);
-        DataEditDialog dialog = new DataEditDialog(frameElement, selectedData, false);
+        DataEditDialog dialog = new DataEditDialog(frameElement, selectedData, false, columnConfig);
         dialog.setVisible(true);
 
         if (dialog.isConfirmed()) {

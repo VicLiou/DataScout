@@ -48,13 +48,29 @@ public class MenuBar {
         return fileMenu;
     }
 
+    private Runnable openColumnConfigAction;
+
+    public void setOpenColumnConfigAction(Runnable action) {
+        this.openColumnConfigAction = action;
+    }
+
     private JMenu settingsMenu() {
         JMenu settingsMenu = new JMenu("設定");
 
         JMenuItem settingsItem = new JMenuItem("偏好設定");
         settingsItem.addActionListener(e -> openSettings());
 
+        JMenuItem columnConfigItem = new JMenuItem("欄位設定");
+        columnConfigItem.addActionListener(e -> {
+            if (openColumnConfigAction != null) {
+                openColumnConfigAction.run();
+            } else {
+                JOptionPane.showMessageDialog(frameElement, "功能未就緒", "提示", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
+
         settingsMenu.add(settingsItem);
+        settingsMenu.add(columnConfigItem);
 
         return settingsMenu;
     }

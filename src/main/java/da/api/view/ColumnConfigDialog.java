@@ -25,16 +25,22 @@ public class ColumnConfigDialog extends JDialog {
     private List<JCheckBox> searchFilterCheckBoxes;
     private boolean confirmed = false;
 
-    public ColumnConfigDialog(List<String> headers) {
+    public ColumnConfigDialog(List<String> headers, ColumnConfig existingConfig) {
         this.headers = headers;
+        this.config = existingConfig; // Store initial config reference if needed, or just use for init
         setModal(true);
         setTitle("欄位設定");
         setSize(400, 500);
         setLocationRelativeTo(null);
-        initComponents();
+        initComponents(existingConfig);
     }
 
-    private void initComponents() {
+    // Default constructor for compatibility
+    public ColumnConfigDialog(List<String> headers) {
+        this(headers, null);
+    }
+
+    private void initComponents(ColumnConfig existingConfig) {
         setLayout(new BorderLayout());
 
         // Top Panel: Expiry Date Selection
@@ -44,6 +50,9 @@ public class ColumnConfigDialog extends JDialog {
         JPanel expiryPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         expiryPanel.add(new JLabel("選擇欄位: "));
         expiryDateComboBox = new JComboBox<>(headers.toArray(new String[0]));
+        if (existingConfig != null && existingConfig.getExpiryDateColumn() != null) {
+            expiryDateComboBox.setSelectedItem(existingConfig.getExpiryDateColumn());
+        }
         expiryPanel.add(expiryDateComboBox);
         topPanel.add(expiryPanel, BorderLayout.CENTER);
 
@@ -58,6 +67,11 @@ public class ColumnConfigDialog extends JDialog {
 
         for (String header : headers) {
             JCheckBox checkBox = new JCheckBox(header);
+            if (existingConfig != null && existingConfig.getSearchFilterColumns() != null) {
+                if (existingConfig.getSearchFilterColumns().contains(header)) {
+                    checkBox.setSelected(true);
+                }
+            }
             searchFilterCheckBoxes.add(checkBox);
             checkBoxPanel.add(checkBox);
         }

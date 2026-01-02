@@ -39,6 +39,10 @@ public class ExcelService {
         return columnConfig;
     }
 
+    public String getFilePath() {
+        return filePath;
+    }
+
     /**
      * 讀取 Excel 標題列
      */

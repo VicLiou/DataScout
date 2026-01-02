@@ -107,6 +107,7 @@ public class App {
             MenuBar menuBar = new MenuBar(jframe, appSettings);
             @SuppressWarnings("unused")
             Panel panel = new Panel(jframe, excelService, config);
+            menuBar.setOpenColumnConfigAction(panel::openSettings);
             logger.info("主視窗元件建立完成");
 
             // 設定系統托盤

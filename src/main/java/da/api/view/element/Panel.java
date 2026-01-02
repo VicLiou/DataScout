@@ -40,6 +40,7 @@ public class Panel {
     private List<ApiKeyData> allData;
 
     private da.api.model.ColumnConfig columnConfig;
+    private JPanel filtersPanel;
     private java.util.Map<String, javax.swing.JComboBox<String>> dynamicComboBoxes = new java.util.HashMap<>();
 
     public Panel(MainFrameView frameElement, ExcelService excelService) {
@@ -98,8 +99,47 @@ public class Panel {
         ));
 
         // --- Filters Panel (Left/Center) ---
-        JPanel filtersPanel = new JPanel(new java.awt.GridBagLayout());
+        filtersPanel = new JPanel(new java.awt.GridBagLayout());
         filtersPanel.setBackground(new java.awt.Color(255, 255, 255));
+
+        rebuildFiltersPanel();
+
+        // --- Action Button Panel (Right) ---
+        JPanel actionPanel = new JPanel(new java.awt.GridBagLayout());
+        actionPanel.setBackground(new java.awt.Color(255, 255, 255));
+        // Add a separation line on the left
+        actionPanel.setBorder(javax.swing.BorderFactory.createCompoundBorder(
+                javax.swing.BorderFactory.createMatteBorder(0, 1, 0, 0, new java.awt.Color(230, 230, 240)),
+                javax.swing.BorderFactory.createEmptyBorder(0, 20, 0, 0)));
+
+        JButton searchButton = createSearchButton();
+        // Make the button larger and distinct
+        searchButton.setPreferredSize(new java.awt.Dimension(100, 45));
+        searchButton.setFont(new java.awt.Font("微軟正黑體", java.awt.Font.BOLD, 16));
+
+        actionPanel.add(searchButton);
+
+        // Add panels to content panel
+        contentPanel.add(filtersPanel, java.awt.BorderLayout.CENTER);
+        contentPanel.add(actionPanel, java.awt.BorderLayout.EAST);
+
+        // Toggle Logic
+        toggleButton.addActionListener(e -> {
+            boolean visible = contentPanel.isVisible();
+            contentPanel.setVisible(!visible);
+            toggleButton.setText(visible ? "\u25B6 搜尋過濾器" : "\u25BC 搜尋過濾器");
+        });
+
+        // Add to main panel
+        mainPanel.add(toggleButton, java.awt.BorderLayout.NORTH);
+        mainPanel.add(contentPanel, java.awt.BorderLayout.CENTER);
+
+        return mainPanel;
+    }
+
+    private void rebuildFiltersPanel() {
+        filtersPanel.removeAll();
+        dynamicComboBoxes.clear(); // Clear old references
 
         java.awt.GridBagConstraints gbc = new java.awt.GridBagConstraints();
         gbc.insets = new java.awt.Insets(10, 10, 10, 15); // Formatting
@@ -205,37 +245,8 @@ public class Panel {
             filtersPanel.add(envComboBox, gbc);
         }
 
-        // --- Action Button Panel (Right) ---
-        JPanel actionPanel = new JPanel(new java.awt.GridBagLayout());
-        actionPanel.setBackground(new java.awt.Color(255, 255, 255));
-        // Add a separation line on the left
-        actionPanel.setBorder(javax.swing.BorderFactory.createCompoundBorder(
-                javax.swing.BorderFactory.createMatteBorder(0, 1, 0, 0, new java.awt.Color(230, 230, 240)),
-                javax.swing.BorderFactory.createEmptyBorder(0, 20, 0, 0)));
-
-        JButton searchButton = createSearchButton();
-        // Make the button larger and distinct
-        searchButton.setPreferredSize(new java.awt.Dimension(100, 45));
-        searchButton.setFont(new java.awt.Font("微軟正黑體", java.awt.Font.BOLD, 16));
-
-        actionPanel.add(searchButton);
-
-        // Add panels to content panel
-        contentPanel.add(filtersPanel, java.awt.BorderLayout.CENTER);
-        contentPanel.add(actionPanel, java.awt.BorderLayout.EAST);
-
-        // Toggle Logic
-        toggleButton.addActionListener(e -> {
-            boolean visible = contentPanel.isVisible();
-            contentPanel.setVisible(!visible);
-            toggleButton.setText(visible ? "\u25B6 搜尋過濾器" : "\u25BC 搜尋過濾器");
-        });
-
-        // Add to main panel
-        mainPanel.add(toggleButton, java.awt.BorderLayout.NORTH);
-        mainPanel.add(contentPanel, java.awt.BorderLayout.CENTER);
-
-        return mainPanel;
+        filtersPanel.revalidate();
+        filtersPanel.repaint();
     }
 
     private JButton createSearchButton() {
@@ -248,6 +259,27 @@ public class Panel {
         searchButton.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         searchButton.addActionListener(e -> performSearch());
         return searchButton;
+    }
+
+    public void openSettings() {
+        List<String> headers = excelService.readHeaders();
+        // Use full constructor to pre-fill
+        da.api.view.ColumnConfigDialog dialog = new da.api.view.ColumnConfigDialog(headers, columnConfig);
+        dialog.setVisible(true);
+
+        if (dialog.isConfirmed()) {
+            da.api.model.ColumnConfig newConfig = dialog.getConfig();
+            this.columnConfig = newConfig;
+            this.excelService.setColumnConfig(newConfig);
+
+            // Save to settings
+            da.api.util.AppSettings settings = new da.api.util.AppSettings();
+            settings.saveColumnConfig(excelService.getFilePath(), newConfig);
+
+            rebuildFiltersPanel();
+            refreshData();
+            JOptionPane.showMessageDialog(frameElement, "設定已更新!");
+        }
     }
 
     private JPanel panelDataManagement() {

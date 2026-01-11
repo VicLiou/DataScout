@@ -22,3 +22,28 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Maven target directory
+target/
+
+# IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+.settings/
+.project
+.classpath
+.factorypath
+
+# User settings and data
+config.properties
+storage/
+logs/
+
+# Markdown documentation (exclude all except README.md)
+*.md
+!README.md
+
+# Dependency tree output
+deps.txt

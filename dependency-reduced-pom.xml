@@ -4,7 +4,7 @@
   <groupId>da.api</groupId>
   <artifactId>data-scout</artifactId>
   <name>data-scout</name>
-  <version>1.0.0-RELEASE</version>
+  <version>2.0.0-RELEASE</version>
   <build>
     <plugins>
       <plugin>
@@ -83,12 +83,12 @@
                 <runtimeBits>64</runtimeBits>
               </jre>
               <versionInfo>
-                <fileVersion>1.0.0.0</fileVersion>
-                <txtFileVersion>1.0.0-RELEASE</txtFileVersion>
+                <fileVersion>2.0.0.0</fileVersion>
+                <txtFileVersion>2.0.0-RELEASE</txtFileVersion>
                 <fileDescription>DataScout</fileDescription>
                 <copyright>DDAD</copyright>
-                <productVersion>1.0.0.0</productVersion>
-                <txtProductVersion>1.0.0-RELEASE</txtProductVersion>
+                <productVersion>2.0.0.0</productVersion>
+                <txtProductVersion>2.0.0-RELEASE</txtProductVersion>
                 <productName>DataScout</productName>
                 <companyName>DDAD</companyName>
                 <internalName>DataScout</internalName>

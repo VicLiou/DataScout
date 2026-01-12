@@ -12,12 +12,28 @@ import javax.swing.plaf.FontUIResource;
 
 public class MainFrameView extends JFrame {
 
-    public MainFrameView() {
+    public MainFrameView(String filePath) {
         super("DataScout");
+
         setSize(1000, 650);
         setMinimumSize(new Dimension(900, 600));
-        // 關閉後程式將退出，不會在後台運行
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        // 使用 DISPOSE_ON_CLOSE 以支援多視窗，在最後一個視窗關閉時才退出應用程式
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+
+        // 加入視窗監聽器以處理關閉事件
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosed(java.awt.event.WindowEvent e) {
+                // 從已開啟檔案列表中移除
+                da.api.App.removeOpenFile(filePath);
+
+                // 如果沒有開啟的視窗/檔案，則退出應用程式
+                if (da.api.App.getOpenWindowCount() == 0) {
+                    System.exit(0);
+                }
+            }
+        });
 
         // 設定視窗初始化顯示於螢幕正中間
         Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();

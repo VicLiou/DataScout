@@ -1,24 +1,37 @@
 package da.api.util;
 
 import java.awt.AWTException;
+import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsEnvironment;
 import java.awt.Image;
+import java.awt.Insets;
+import java.awt.MouseInfo;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.SystemTray;
+import java.awt.Toolkit;
 import java.awt.TrayIcon;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
+import javax.swing.BorderFactory;
+import javax.swing.Icon;
 import javax.swing.JDialog;
+import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
-import javax.swing.event.PopupMenuEvent;
-import javax.swing.event.PopupMenuListener;
+import javax.swing.SwingUtilities;
 
 import da.api.view.MainFrameView;
 
@@ -43,36 +56,27 @@ public class SystemTrayManager {
 
     private void setupSystemTray() {
         if (!SystemTray.isSupported()) {
-            System.out.println("系統不支援托盤功能");
             return;
         }
 
         SystemTray tray = SystemTray.getSystemTray();
-
-        // 建立托盤圖示
         Image image = createTrayIcon();
-
-        // 注意: 為了支援自訂字型以解決亂碼問題，我們不使用建構子傳入 PopupMenu，
-        // 而是改用 Swing JPopupMenu 搭配 MouseListener
         trayIcon = new TrayIcon(image, "DataScout");
         trayIcon.setImageAutoSize(true);
 
         // 初始化 Swing 右鍵選單
         initSwingPopupMenu();
 
-        // 滑鼠事件監聽
         trayIcon.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseReleased(MouseEvent e) {
-                // 檢查是否為右鍵點擊 (觸發選單)
                 if (e.isPopupTrigger() || e.getButton() == MouseEvent.BUTTON3) {
-                    showSwingPopupMenu(e.getX(), e.getY());
+                    showSwingPopupMenu();
                 }
             }
 
             @Override
             public void mouseClicked(MouseEvent e) {
-                // 左鍵雙擊開啟視窗
                 if (e.getButton() == MouseEvent.BUTTON1 && e.getClickCount() == 2) {
                     showMainWindow();
                 }
@@ -88,114 +92,128 @@ public class SystemTrayManager {
 
     private void initSwingPopupMenu() {
         popupMenu = new JPopupMenu();
-        // 設定微軟正黑體
-        Font font = new Font("Microsoft JhengHei", Font.PLAIN, 12);
+        popupMenu.setBorder(BorderFactory.createLineBorder(new Color(229, 231, 235), 1));
+        popupMenu.setBackground(Color.WHITE);
 
-        JMenuItem showItem = new JMenuItem("顯示視窗");
-        showItem.setFont(font);
-        showItem.addActionListener(e -> showMainWindow());
+        Font font = new Font("微軟正黑體", Font.PLAIN, 13);
+        Font headerFont = new Font("微軟正黑體", Font.BOLD, 14);
 
-        JMenuItem hideItem = new JMenuItem("隱藏視窗");
-        hideItem.setFont(font);
-        hideItem.addActionListener(e -> hideMainWindow());
+        // 1. 標題
+        JLabel titleItem = new JLabel("  DataScout");
+        titleItem.setFont(headerFont);
+        titleItem.setForeground(new Color(37, 99, 235));
+        titleItem.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        titleItem.setOpaque(true);
+        titleItem.setBackground(new Color(248, 250, 252));
+        popupMenu.add(titleItem);
 
-        JMenuItem exitItem = new JMenuItem("關閉視窗");
-        exitItem.setFont(font);
-        exitItem.addActionListener(e -> closeWindow());
-
-        popupMenu.add(showItem);
-        popupMenu.add(hideItem);
         popupMenu.addSeparator();
+
+        // 2. 選項
+        JMenuItem showItem = createStyledMenuItem("顯示視窗", font, new MenuIcon(MenuIcon.Type.WINDOW));
+        showItem.addActionListener(e -> showMainWindow());
+        popupMenu.add(showItem);
+
+        JMenuItem hideItem = createStyledMenuItem("隱藏視窗", font, new MenuIcon(MenuIcon.Type.MINIMIZE));
+        hideItem.addActionListener(e -> hideMainWindow());
+        popupMenu.add(hideItem);
+
+        popupMenu.addSeparator();
+
+        JMenuItem exitItem = createStyledMenuItem("關閉程式", font, new MenuIcon(MenuIcon.Type.CLOSE));
+        exitItem.addActionListener(e -> closeWindow());
         popupMenu.add(exitItem);
 
-        // 建立一個隱藏的 Dialog 作為 PopupMenu 的依附對象
-        // 這樣可以確保 PopupMenu 正確顯示在最上層
         hiddenDialog = new JDialog();
         hiddenDialog.setUndecorated(true);
         hiddenDialog.setSize(0, 0);
         hiddenDialog.setAlwaysOnTop(true);
+        hiddenDialog.setType(java.awt.Window.Type.UTILITY); // 設為工具視窗，避免在 Alt+Tab 中出現
 
-        // 當選單關閉時，隱藏 dummy dialog
-        popupMenu.addPopupMenuListener(new PopupMenuListener() {
+        popupMenu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
             @Override
-            public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
+            public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
             }
 
             @Override
-            public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
+            public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {
                 hiddenDialog.setVisible(false);
             }
 
             @Override
-            public void popupMenuCanceled(PopupMenuEvent e) {
+            public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {
                 hiddenDialog.setVisible(false);
             }
         });
     }
 
-    private void showSwingPopupMenu(int eventX, int eventY) {
+    private JMenuItem createStyledMenuItem(String text, Font font, Icon icon) {
+        JMenuItem item = new JMenuItem(text, icon);
+        item.setFont(font);
+        item.setBackground(Color.WHITE);
+        item.setForeground(new Color(55, 65, 81));
+        item.setBorder(BorderFactory.createEmptyBorder(6, 5, 6, 5));
+        item.setIconTextGap(12); // 增加圖示與文字間距
+        item.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return item;
+    }
+
+    private void showSwingPopupMenu() {
         if (popupMenu != null) {
-            // Use MouseInfo to get the most accurate current cursor position
-            java.awt.Point mousePoint = java.awt.MouseInfo.getPointerInfo().getLocation();
+            // 取得游標位置
+            Point mousePoint = MouseInfo.getPointerInfo().getLocation();
             int x = mousePoint.x;
             int y = mousePoint.y;
 
-            // Force calculations to ensure valid size
-            popupMenu.revalidate();
+            // 計算選單大小
             popupMenu.pack();
             Dimension size = popupMenu.getPreferredSize();
 
-            // Fallback size
-            if (size.width == 0 || size.height == 0) {
-                // Approximate standard size
-                size = new Dimension(120, 100);
-            }
-
-            // Get standard screen configuration and insets (taskbar area)
-            java.awt.GraphicsConfiguration config = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
+            // 取得螢幕邊界資訊
+            GraphicsConfiguration config = GraphicsEnvironment.getLocalGraphicsEnvironment()
                     .getDefaultScreenDevice().getDefaultConfiguration();
-            java.awt.Insets insets = java.awt.Toolkit.getDefaultToolkit().getScreenInsets(config);
-            java.awt.Rectangle screenBounds = config.getBounds();
+            Insets insets = Toolkit.getDefaultToolkit().getScreenInsets(config);
+            Rectangle screenBounds = config.getBounds();
 
-            // Calculate usable screen bottom and right (excluding taskbar)
             int usableBottom = screenBounds.y + screenBounds.height - insets.bottom;
             int usableRight = screenBounds.x + screenBounds.width - insets.right;
 
             int menuX = x;
             int menuY = y;
 
-            // Vertical Positioning Logic:
-            // Check if menu would overflow the usable bottom area
-            // OR if cursor is in the bottom 25% of the full screen (fallback heuristic)
-            boolean overflowBottom = (y + size.height > usableBottom);
-            boolean isBottomRegion = (y > (screenBounds.height * 0.75));
-
-            if (overflowBottom || isBottomRegion) {
-                // Position ABOVE the cursor
-                menuY = y - size.height - 5;
-            } else {
-                // Position BELOW the cursor
-                menuY = y + 5;
+            // Y軸邏輯：如果下方空間不足，則將選單顯示在游標上方
+            if (y + size.height > usableBottom) {
+                menuY = y - size.height;
             }
 
-            // Horizontal Positioning Logic:
-            // If menu overlaps right usable edge, shift left
+            // X軸邏輯：如果右方空間不足，則向左平移
             if (x + size.width > usableRight) {
                 menuX = x - size.width;
             }
 
-            // Final safety clamp to screen bounds (ensure strictly on-screen)
+            // 確保不超出螢幕邊界
             if (menuY < screenBounds.y)
                 menuY = screenBounds.y;
             if (menuX < screenBounds.x)
                 menuX = screenBounds.x;
 
-            // Apply position
+            // 設定隱藏 Dialog 位置並顯示
+            // 讓 Dialog 有一個極小的尺寸，確保它能接收焦點，這對於選單自動關閉很重要
+            hiddenDialog.setSize(10, 10);
             hiddenDialog.setLocation(menuX, menuY);
+
+            // 將 Dialog 背景設為完全透明（如果系統支援），這樣就不會看到一個奇怪的小方塊
+            try {
+                hiddenDialog.setBackground(new Color(0, 0, 0, 0));
+            } catch (Exception e) {
+                // 不支援透明背景則忽略，10x10 的方塊會被選單遮住大部分
+            }
+
             hiddenDialog.setVisible(true);
             hiddenDialog.toFront();
+            hiddenDialog.requestFocus();
 
-            // Show popup relative to the positioned hidden dialog
+            // 顯示 Popup (相對於 Dialog 的 0,0)
             popupMenu.show(hiddenDialog, 0, 0);
         }
     }
@@ -232,8 +250,6 @@ public class SystemTrayManager {
                 }
             }
         });
-
-        // 修改預設關閉行為
         mainFrame.setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
     }
 
@@ -244,25 +260,16 @@ public class SystemTrayManager {
                 return new javax.swing.ImageIcon(iconUrl).getImage();
             }
         } catch (Exception e) {
-            // 載入失敗則使用預設繪製圖示
         }
 
-        // 備用方案：建立一個簡單的 16x16 圖示
+        // Fallback icon
         int size = 16;
         java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(size, size,
                 java.awt.image.BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = image.createGraphics();
-
-        // 繪製一個藍色圓形
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2d.setColor(new Color(0, 120, 215));
         g2d.fillOval(0, 0, size - 1, size - 1);
-
-        // 繪製 "A" 字母
-        g2d.setColor(Color.WHITE);
-        g2d.setFont(new Font("Arial", Font.BOLD, 12));
-        g2d.drawString("A", 4, 13);
-
         g2d.dispose();
         return image;
     }
@@ -271,18 +278,18 @@ public class SystemTrayManager {
         mainFrame.setVisible(true);
         mainFrame.setExtendedState(java.awt.Frame.NORMAL);
         mainFrame.toFront();
+        // 嘗試將焦點帶回主視窗
+        SwingUtilities.invokeLater(() -> mainFrame.requestFocus());
     }
 
     public void hideMainWindow() {
         mainFrame.setVisible(false);
         if (trayIcon != null) {
-            trayIcon.displayMessage("DataScout",
-                    "程式已最小化到系統托盤", TrayIcon.MessageType.INFO);
+            trayIcon.displayMessage("DataScout", "程式已最小化到系統托盤", TrayIcon.MessageType.INFO);
         }
     }
 
     public void closeWindow() {
-        // 直接釋放視窗，這會觸發 windowClosed 事件進行清理
         mainFrame.dispose();
     }
 
@@ -292,4 +299,67 @@ public class SystemTrayManager {
         }
     }
 
+    // ============ 自訂圖示類別 ============
+    // 使用 Java 2D 繪圖，確保在任何系統上都能清晰顯示，不受字型影響
+    private static class MenuIcon implements Icon {
+        enum Type {
+            WINDOW, MINIMIZE, CLOSE
+        }
+
+        private final Type type;
+        private final int iconSize = 14;
+
+        public MenuIcon(Type type) {
+            this.type = type;
+        }
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            // 根據類型設定顏色
+            if (type == Type.CLOSE) {
+                g2d.setColor(new Color(220, 38, 38)); // 紅色
+            } else {
+                g2d.setColor(new Color(107, 114, 128)); // 灰色
+            }
+            // 懸停變色邏輯由 JMenuItem 負責，這裡繪製基礎圖形
+
+            g2d.setStroke(new BasicStroke(1.5f));
+
+            // 置中計算
+            int offset = 1;
+
+            switch (type) {
+                case WINDOW:
+                    // 畫一個方框
+                    g2d.drawRect(x + offset, y + offset + 1, 10, 8);
+                    // 畫上方標題列線條
+                    g2d.drawLine(x + offset, y + offset + 3, x + offset + 10, y + offset + 3);
+                    break;
+                case MINIMIZE:
+                    // 畫一條橫線
+                    g2d.drawLine(x + offset, y + iconSize / 2 + 2, x + offset + 10, y + iconSize / 2 + 2);
+                    break;
+                case CLOSE:
+                    // 畫一個 X
+                    g2d.drawLine(x + offset + 1, y + offset + 2, x + offset + 9, y + offset + 10);
+                    g2d.drawLine(x + offset + 9, y + offset + 2, x + offset + 1, y + offset + 10);
+                    break;
+            }
+
+            g2d.dispose();
+        }
+
+        @Override
+        public int getIconWidth() {
+            return iconSize;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return iconSize;
+        }
+    }
 }

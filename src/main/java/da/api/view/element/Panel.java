@@ -125,7 +125,7 @@ public class Panel {
         }, 2, 2, java.util.concurrent.TimeUnit.SECONDS);
     }
 
-    private void stopFileMonitoring() {
+    public void stopFileMonitoring() {
         if (fileMonitorExecutor != null && !fileMonitorExecutor.isShutdown()) {
             fileMonitorExecutor.shutdownNow();
         }
@@ -318,7 +318,8 @@ public class Panel {
 
             da.api.util.LogManager.getInstance().info(
                     String.format("使用者更新欄位設定。到期日欄位: [%s], 過濾欄位: [%s]", expiryCol, filters));
-            JOptionPane.showMessageDialog(frameElement, "設定已更新!");
+            da.api.util.StyledDialogs.showMessageDialog(frameElement, "設定已更新!", "成功",
+                    JOptionPane.INFORMATION_MESSAGE);
         } else {
             da.api.util.LogManager.getInstance().info("使用者取消欄位設定更新");
         }
@@ -896,9 +897,116 @@ public class Panel {
             dataTable.getColumnModel().getColumn(i).setCellRenderer(renderer);
         }
 
-        // 基本欄寬調整
-        if (dataTable.getColumnCount() > 0) {
-            dataTable.getColumnModel().getColumn(0).setPreferredWidth(50); // 序號
+        // 自適應調整欄寬
+        adjustColumnWidths();
+        // 自適應調整行高
+        adjustRowsHeight();
+    }
+
+    /**
+     * 自適應調整欄位寬度
+     */
+    private void adjustColumnWidths() {
+        if (dataTable == null || dataTable.getColumnCount() == 0)
+            return;
+
+        // 設定最大欄寬度
+        final int MAX_WIDTH = 500;
+        // 設定最小欄寬度
+        final int MIN_WIDTH = 60;
+
+        // 確保表格已有字型測量工具
+        java.awt.Font font = dataTable.getFont();
+        java.awt.FontMetrics fm = dataTable.getFontMetrics(font);
+
+        for (int column = 0; column < dataTable.getColumnCount(); column++) {
+            javax.swing.table.TableColumn tableColumn = dataTable.getColumnModel().getColumn(column);
+
+            // 1. 計算標題寬度
+            Object headerValue = tableColumn.getHeaderValue();
+            javax.swing.table.TableCellRenderer headerRenderer = dataTable.getTableHeader().getDefaultRenderer();
+            if (headerRenderer == null) {
+                headerRenderer = new javax.swing.table.DefaultTableCellRenderer();
+            }
+            java.awt.Component headerComp = headerRenderer.getTableCellRendererComponent(
+                    dataTable, headerValue, false, false, 0, column);
+            int maxRequiredWidth = headerComp.getPreferredSize().width + 20; // Padding
+
+            // 2. 計算內容寬度 (限制檢測行數以優化效能)
+            int rowCount = dataTable.getRowCount();
+            int checkLimit = Math.min(rowCount, 100);
+
+            for (int row = 0; row < checkLimit; row++) {
+                // 直接獲取值
+                Object value = dataTable.getValueAt(row, column);
+                String text = (value != null) ? value.toString() : "";
+
+                // 計算多行文字的最寬行
+                int textWidth = 0;
+                if (!text.isEmpty()) {
+                    String[] lines = text.split("\\r?\\n");
+                    for (String line : lines) {
+                        textWidth = Math.max(textWidth, fm.stringWidth(line));
+                    }
+                }
+
+                // 加上內距 (Border insets 10+10 = 20)
+                int cellWidth = textWidth + 25;
+
+                maxRequiredWidth = Math.max(maxRequiredWidth, cellWidth);
+
+                if (maxRequiredWidth >= MAX_WIDTH) {
+                    maxRequiredWidth = MAX_WIDTH;
+                    break;
+                }
+            }
+
+            // 3. 套用寬度
+            maxRequiredWidth = Math.max(MIN_WIDTH, maxRequiredWidth);
+            tableColumn.setPreferredWidth(maxRequiredWidth);
+        }
+    }
+
+    private void adjustRowsHeight() {
+        if (dataTable == null || dataTable.getRowCount() == 0)
+            return;
+
+        // 預設行高
+        int defaultRowHeight = 32;
+
+        for (int row = 0; row < dataTable.getRowCount(); row++) {
+            int maxRowHeight = defaultRowHeight;
+
+            for (int col = 0; col < dataTable.getColumnCount(); col++) {
+                Object value = dataTable.getValueAt(row, col);
+                javax.swing.table.TableCellRenderer renderer = dataTable.getCellRenderer(row, col);
+                java.awt.Component comp = renderer.getTableCellRendererComponent(
+                        dataTable, value, false, false, row, col);
+
+                // 修正：使用 preferredWidth 而非 getWidth，因為 Layout 可能尚未更新
+                int colWidth = dataTable.getColumnModel().getColumn(col).getPreferredWidth();
+                // 扣除預設間距確保有空間換行
+                colWidth = Math.max(colWidth - dataTable.getIntercellSpacing().width, 10);
+
+                // 設定元件寬度以觸發 JTextArea 的自動換行計算
+                comp.setSize(new java.awt.Dimension(colWidth, Short.MAX_VALUE));
+
+                // 嘗試強制驗證以獲取正確的高度
+                if (comp instanceof javax.swing.JTextArea) {
+                    // 對於 JTextArea，明確設定寬度對計算 preferredSize 很重要
+                    javax.swing.JTextArea ta = (javax.swing.JTextArea) comp;
+                    // 根據寬度重新計算 View 的大小
+                    java.awt.Dimension d = ta.getPreferredSize();
+                    // 如果是第一行，寬度可能尚未正確應用到 View，這裡直接依賴 setSize
+                }
+
+                int cellHeight = comp.getPreferredSize().height;
+                maxRowHeight = Math.max(maxRowHeight, cellHeight);
+            }
+            // 只有在高度改變時才更新，減少重繪
+            if (dataTable.getRowHeight(row) != maxRowHeight) {
+                dataTable.setRowHeight(row, maxRowHeight);
+            }
         }
     }
 
@@ -923,6 +1031,13 @@ public class Panel {
         String selectedPath = dialog.getSelectedFilePath();
 
         if (selectedPath != null && !selectedPath.isEmpty()) {
+            // 檢查是否已開啟此檔案
+            // 檢查是否已開啟此檔案
+            if (da.api.App.isFileOpen(selectedPath)) {
+                da.api.util.StyledDialogs.showMessageDialog(frameElement,
+                        "此檔案已經被開啟!", "警告", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             // 驗證文件是否存在
             java.io.File file = new java.io.File(selectedPath);
             if (!file.exists()) {
@@ -950,7 +1065,7 @@ public class Panel {
             }
 
             // 啟動新實例
-            da.api.App.launch(selectedPath);
+            da.api.App.launch(selectedPath, false);
         }
     }
 
@@ -979,9 +1094,16 @@ public class Panel {
         // 檢查使用者是否選擇了現有檔案 (在新視窗開啟)
         String selectedPath = dialog.getSelectedFilePath();
         if (selectedPath != null && !selectedPath.isEmpty()) {
+            // 檢查是否已開啟此檔案
+            // 檢查是否已開啟此檔案
+            if (da.api.App.isFileOpen(selectedPath)) {
+                da.api.util.StyledDialogs.showMessageDialog(frameElement,
+                        "此檔案已經被開啟!", "警告", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             da.api.util.LogManager.getInstance().info("使用者選擇在新視窗開啟檔案：" + selectedPath);
             if (new java.io.File(selectedPath).exists()) {
-                da.api.App.launch(selectedPath);
+                da.api.App.launch(selectedPath, false);
             } else {
                 JOptionPane.showMessageDialog(frameElement,
                         "檔案不存在: " + selectedPath,
@@ -992,22 +1114,21 @@ public class Panel {
     }
 
     private void performCreateNewFile() {
-        javax.swing.JFileChooser fileChooser = new javax.swing.JFileChooser();
-        fileChooser.setDialogTitle("另存新檔");
-        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Excel Files (*.xlsx)", "xlsx"));
+        da.api.view.ModernFileChooser fileChooser = new da.api.view.ModernFileChooser(
+                frameElement, "另存新檔", da.api.view.ModernFileChooser.MODE_SAVE);
+        fileChooser.setVisible(true);
 
-        int userSelection = fileChooser.showSaveDialog(frameElement);
-        if (userSelection == javax.swing.JFileChooser.APPROVE_OPTION) {
+        if (fileChooser.isApproved()) {
             java.io.File fileToSave = fileChooser.getSelectedFile();
             String path = fileToSave.getAbsolutePath();
             if (!path.toLowerCase().endsWith(".xlsx")) {
                 path += ".xlsx";
             }
 
-            // 檢查使用者是否選擇了與目前開啟相同的檔案
-            if (excelService != null && path.equalsIgnoreCase(excelService.getFilePath())) {
+            // 檢查是否已開啟此檔案
+            if (da.api.App.isFileOpen(path)) {
                 JOptionPane.showMessageDialog(frameElement,
-                        "無法覆蓋目前正在使用的檔案!",
+                        "無法覆蓋目前已開啟的檔案!",
                         "錯誤",
                         JOptionPane.ERROR_MESSAGE);
                 return;
@@ -1015,7 +1136,7 @@ public class Panel {
 
             // 若檔案已存在則直接開啟
             if (new java.io.File(path).exists()) {
-                da.api.App.launch(path);
+                da.api.App.launch(path, false);
                 return;
             }
 
@@ -1027,7 +1148,7 @@ public class Panel {
 
             if (new java.io.File(path).exists()) {
                 da.api.util.LogManager.getInstance().info("建立新檔案成功，啟動新實例：" + path);
-                da.api.App.launch(path);
+                da.api.App.launch(path, false);
             } else {
                 da.api.util.LogManager.getInstance().error("建立新檔案失敗：" + path);
                 JOptionPane.showMessageDialog(frameElement, "建立檔案失敗", "錯誤", JOptionPane.ERROR_MESSAGE);
@@ -1035,16 +1156,46 @@ public class Panel {
         }
     }
 
-    private class RowExpiryRenderer extends javax.swing.table.DefaultTableCellRenderer {
+    private class RowExpiryRenderer extends javax.swing.JTextArea implements javax.swing.table.TableCellRenderer {
+        public RowExpiryRenderer() {
+            setLineWrap(true);
+            setWrapStyleWord(true);
+            setOpaque(true);
+            setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        }
+
         @Override
-        public java.awt.Component getTableCellRendererComponent(JTable table, Object value,
+        public java.awt.Component getTableCellRendererComponent(javax.swing.JTable table, Object value,
                 boolean isSelected, boolean hasFocus, int row, int column) {
-            java.awt.Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
+            String text = (value != null) ? value.toString() : "";
+            setText(text);
+
+            if (text != null && !text.isEmpty()) {
+                // 將文字轉換為 HTML 格式以支援換行顯示，並處理特殊字元
+                String htmlText = "<html><p style='font-family:微軟正黑體;'>" +
+                        text.replace("&", "&amp;")
+                                .replace("<", "&lt;")
+                                .replace(">", "&gt;")
+                                .replace("\"", "&quot;")
+                                .replace("\n", "<br>")
+                        +
+                        "</p></html>";
+                setToolTipText(htmlText);
+            } else {
+                setToolTipText(null);
+            }
+
+            setFont(table.getFont());
 
             if (!isSelected) {
-                // 預設顏色
-                c.setBackground(java.awt.Color.WHITE);
-                c.setForeground(java.awt.Color.BLACK);
+                // 交替行顏色
+                if (row % 2 == 0) {
+                    setBackground(java.awt.Color.WHITE);
+                } else {
+                    setBackground(new java.awt.Color(249, 250, 251));
+                }
+                setForeground(new java.awt.Color(31, 41, 55));
 
                 if (currentData != null && row >= 0 && row < currentData.size()) {
                     try {
@@ -1055,13 +1206,13 @@ public class Panel {
 
                             if (days < 0) {
                                 // 已經過期：紅底警告
-                                c.setBackground(new java.awt.Color(255, 205, 210)); // 淺紅色
-                                c.setForeground(new java.awt.Color(198, 40, 40)); // 深紅色文字
+                                setBackground(new java.awt.Color(255, 205, 210)); // 淺紅色
+                                setForeground(new java.awt.Color(198, 40, 40)); // 深紅色文字
                             } else if (days >= 0
                                     && days <= appSettings.getExpiryReminderDays(excelService.getFilePath())) {
                                 // 即將到期：黃底警告
-                                c.setBackground(new java.awt.Color(255, 243, 205)); // 淺黃色
-                                c.setForeground(new java.awt.Color(133, 100, 4)); // 深黃/褐色文字
+                                setBackground(new java.awt.Color(255, 243, 205)); // 淺黃色
+                                setForeground(new java.awt.Color(133, 100, 4)); // 深黃/褐色文字
                             }
                         }
                     } catch (Exception e) {
@@ -1070,10 +1221,10 @@ public class Panel {
                 }
             } else {
                 // 保持選取顏色
-                c.setBackground(table.getSelectionBackground());
-                c.setForeground(table.getSelectionForeground());
+                setBackground(table.getSelectionBackground());
+                setForeground(table.getSelectionForeground());
             }
-            return c;
+            return this;
         }
     }
 
@@ -1154,7 +1305,8 @@ public class Panel {
                     }
                 }
                 da.api.util.LogManager.getInstance().info("使用者新增資料成功。內容: {" + sb.toString() + "}");
-                JOptionPane.showMessageDialog(frameElement, "新增成功!");
+                da.api.util.StyledDialogs.showMessageDialog(frameElement, "新增成功!", "成功",
+                        JOptionPane.INFORMATION_MESSAGE);
             } else {
                 // 保存失敗，回滾
                 allData.remove(newData);
@@ -1169,7 +1321,7 @@ public class Panel {
     private void editData() {
         int selectedRow = dataTable.getSelectedRow();
         if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(frameElement,
+            da.api.util.StyledDialogs.showMessageDialog(frameElement,
                     "請先選擇要編輯的資料!", "提示", JOptionPane.WARNING_MESSAGE);
             return;
         }
@@ -1215,7 +1367,8 @@ public class Panel {
                 }
                 da.api.util.LogManager.getInstance()
                         .info("使用者編輯資料成功 (Row: " + selectedRow + ")。變更: [" + diff.toString() + "]");
-                JOptionPane.showMessageDialog(frameElement, "編輯成功!");
+                da.api.util.StyledDialogs.showMessageDialog(frameElement, "編輯成功!", "成功",
+                        JOptionPane.INFORMATION_MESSAGE);
             } else {
                 // 保存失敗，回滾
                 if (allDataIndex != -1) {
@@ -1292,23 +1445,37 @@ public class Panel {
         }
 
         // 輸入新欄位名稱
-        String columnName = da.api.util.StyledDialogs.showInputDialog(frameElement,
-                "請輸入新欄位名稱：",
-                "新增欄位",
-                "");
+        String columnName = "";
 
-        // 檢查輸入
-        if (columnName == null || columnName.trim().isEmpty()) {
-            return; // 用戶取消或輸入空值
-        }
+        while (true) {
+            // 傳入 columnName 作為預設值，保留上次輸入(如果有的話)
+            columnName = da.api.util.StyledDialogs.showInputDialog(frameElement,
+                    "請輸入新欄位名稱：",
+                    "新增欄位",
+                    columnName);
 
-        columnName = columnName.trim();
+            // 檢查輸入
+            if (columnName == null) {
+                return; // 用戶取消
+            }
 
-        // 檢查欄位是否已存在
-        if (columnConfig.getAllHeaders().contains(columnName)) {
-            da.api.util.StyledDialogs.showMessageDialog(frameElement,
-                    "欄位「" + columnName + "」已存在！", "錯誤", JOptionPane.ERROR_MESSAGE);
-            return;
+            if (columnName.trim().isEmpty()) {
+                da.api.util.StyledDialogs.showMessageDialog(frameElement,
+                        "欄位名稱不能為空!", "警告", JOptionPane.WARNING_MESSAGE);
+                continue; // 重新輸入
+            }
+
+            columnName = columnName.trim();
+
+            // 檢查欄位是否已存在
+            if (columnConfig.getAllHeaders().contains(columnName)) {
+                da.api.util.StyledDialogs.showMessageDialog(frameElement,
+                        "欄位「" + columnName + "」已存在！", "錯誤", JOptionPane.ERROR_MESSAGE);
+                continue; // 重新輸入
+            }
+
+            // 輸入有效，跳出迴圈
+            break;
         }
 
         // 確認添加
@@ -1386,28 +1553,38 @@ public class Panel {
 
         // 讓用戶選擇要刪除的欄位
         String[] options = deletableHeaders.toArray(new String[0]);
-        String selectedColumn = da.api.util.StyledDialogs.showSelectionDialog(
-                frameElement,
-                "請選擇要刪除的欄位：",
-                "刪除欄位",
-                options,
-                options[0]);
+        String selectedColumn = null;
 
-        // 用戶取消選擇
-        if (selectedColumn == null) {
-            return;
-        }
+        while (true) {
+            // 使用之前選的選項作為預設值(如果有)
+            String defaultOption = (selectedColumn != null) ? selectedColumn : options[0];
 
-        // 確認刪除
-        boolean confirm = da.api.util.StyledDialogs.showConfirmDialog(frameElement,
-                "確定要刪除欄位「" + selectedColumn + "」嗎？\n\n" +
-                        "警告：此操作無法還原！\n" +
-                        "所有資料的該欄位資訊將永久遺失。",
-                "確認刪除欄位",
-                JOptionPane.WARNING_MESSAGE);
+            selectedColumn = da.api.util.StyledDialogs.showSelectionDialog(
+                    frameElement,
+                    "請選擇要刪除的欄位：",
+                    "刪除欄位",
+                    options,
+                    defaultOption);
 
-        if (!confirm) {
-            return;
+            // 用戶取消選擇
+            if (selectedColumn == null) {
+                return;
+            }
+
+            // 確認刪除
+            boolean confirm = da.api.util.StyledDialogs.showConfirmDialog(frameElement,
+                    "確定要刪除欄位「" + selectedColumn + "」嗎？\n\n" +
+                            "警告：此操作無法還原！\n" +
+                            "所有資料的該欄位資訊將永久遺失。",
+                    "確認刪除欄位",
+                    JOptionPane.WARNING_MESSAGE);
+
+            if (!confirm) {
+                continue; // 重新選擇
+            }
+
+            // 確認刪除，跳出迴圈進行後續操作
+            break;
         }
 
         try {
@@ -1579,7 +1756,10 @@ public class Panel {
             updateExpiryReminderLabel();
             da.api.util.LogManager.getInstance().info("使用者設定到期提醒天數：" + days + " 天");
             dialog.dispose();
-            JOptionPane.showMessageDialog(frameElement, "設定已更新！到期提醒天數設為 " + days + " 天");
+            da.api.util.StyledDialogs.showMessageDialog(frameElement,
+                    "設定已更新！到期提醒天數設為 " + days + " 天",
+                    "成功",
+                    JOptionPane.INFORMATION_MESSAGE);
             dataTable.repaint();
         });
 
@@ -1680,4 +1860,5 @@ public class Panel {
         public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {
         }
     }
+
 }

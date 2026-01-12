@@ -14,7 +14,7 @@ import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JDialog;
-import javax.swing.JFileChooser;
+
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JMenuItem;
@@ -23,7 +23,6 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.ListSelectionModel;
-import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class FileSelectionDialog extends JDialog {
     private String selectedFilePath;
@@ -213,7 +212,7 @@ public class FileSelectionDialog extends JDialog {
             if (selected != null) {
                 confirmSelection(selected);
             } else {
-                JOptionPane.showMessageDialog(this, "請選擇一個檔案或點擊瀏覽", "提示", JOptionPane.WARNING_MESSAGE);
+                da.api.util.StyledDialogs.showMessageDialog(this, "請選擇一個檔案或點擊瀏覽", "提示", JOptionPane.WARNING_MESSAGE);
             }
         });
         buttonPanel.add(okButton);
@@ -291,12 +290,15 @@ public class FileSelectionDialog extends JDialog {
     }
 
     private void browseFile() {
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setFileFilter(new FileNameExtensionFilter("Excel Files (*.xlsx)", "xlsx"));
-        int result = fileChooser.showOpenDialog(this);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            File selectedFile = fileChooser.getSelectedFile();
-            confirmSelection(selectedFile.getAbsolutePath());
+        da.api.view.ModernFileChooser fileChooser = new da.api.view.ModernFileChooser(
+                this, "選擇 Excel 檔案", da.api.view.ModernFileChooser.MODE_OPEN);
+        fileChooser.setVisible(true);
+
+        if (fileChooser.isApproved()) {
+            java.io.File selectedFile = fileChooser.getSelectedFile();
+            if (selectedFile != null) {
+                confirmSelection(selectedFile.getAbsolutePath());
+            }
         }
     }
 

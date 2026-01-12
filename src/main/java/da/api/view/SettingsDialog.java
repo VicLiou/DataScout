@@ -191,11 +191,25 @@ public class SettingsDialog extends JDialog {
     private void loadSettings() {
         if (filePath != null) {
             // 使用檔案特定設定
-            autoStartCheckBox.setSelected(appSettings.isAutoStart(filePath));
+            // 優先檢查系統 Registry 狀態
+            boolean isSystemAutoStart = AutoStartManager.isAutoStartEnabled(filePath);
+            autoStartCheckBox.setSelected(isSystemAutoStart);
+
+            // 同步回 AppSettings (如果 Registry 狀態與設定檔不同步)
+            if (appSettings.isAutoStart(filePath) != isSystemAutoStart) {
+                appSettings.setAutoStart(filePath, isSystemAutoStart);
+            }
+
             minimizeToTrayCheckBox.setSelected(appSettings.isMinimizeToTray(filePath));
         } else {
             // 使用全域設定作為回退
-            autoStartCheckBox.setSelected(appSettings.isGlobalAutoStart());
+            boolean isSystemAutoStart = AutoStartManager.isAutoStartEnabled(null);
+            autoStartCheckBox.setSelected(isSystemAutoStart);
+
+            if (appSettings.isGlobalAutoStart() != isSystemAutoStart) {
+                appSettings.setGlobalAutoStart(isSystemAutoStart);
+            }
+
             minimizeToTrayCheckBox.setSelected(appSettings.isGlobalMinimizeToTray());
         }
     }
@@ -219,14 +233,14 @@ public class SettingsDialog extends JDialog {
         da.api.util.LogManager.getInstance().info(
                 String.format("使用者儲存偏好設定: [開機自動啟動: %b, 最小化到托盤: %b]", autoStart, minimizeToTray));
 
-        // 設定開機自動啟動
-        if (AutoStartManager.setAutoStart(autoStart)) {
-            JOptionPane.showMessageDialog(this,
+        // 設定開機自動啟動 (支援指定檔案)
+        if (AutoStartManager.setAutoStart(autoStart, filePath)) {
+            da.api.util.StyledDialogs.showMessageDialog(this,
                     "設定已儲存!",
                     "成功",
                     JOptionPane.INFORMATION_MESSAGE);
         } else {
-            JOptionPane.showMessageDialog(this,
+            da.api.util.StyledDialogs.showMessageDialog(this,
                     "開機自動啟動設定失敗\n其他設定已儲存",
                     "警告",
                     JOptionPane.WARNING_MESSAGE);

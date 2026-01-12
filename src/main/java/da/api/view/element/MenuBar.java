@@ -22,6 +22,9 @@ public class MenuBar {
         this.appSettings = appSettings;
         this.excelService = excelService;
 
+        // 初始化版本歷史
+        initVersionHistory();
+
         this.jMenuBar = new JMenuBar();
 
         // 美化 MenuBar
@@ -350,93 +353,112 @@ public class MenuBar {
         panel.add(valueComponent, gbc);
     }
 
+    // ================= 版本控制與更新說明 =================
+
+    private static class VersionEntry {
+        String version;
+        String date;
+        String[] changes;
+
+        public VersionEntry(String version, String date, String... changes) {
+            this.version = version;
+            this.date = date;
+            this.changes = changes;
+        }
+    }
+
+    private final java.util.List<VersionEntry> versionHistory = new java.util.ArrayList<>();
+
+    private void initVersionHistory() {
+        // 請在此處新增版本記錄 (建議最新的版本放最上面)
+
+        addVersion("2.0.0-RELEASE", "2026-01-12",
+                "1. UI介面優化提升使用者體驗",
+                "2. 修正檔案重複開啟的保護機制",
+                "3. 美化系統托盤選單與對話框介面",
+                "4. 修正開機後不會自動啟動的問題",
+                "5. 修正自動啟動後重複開啟檔案的異常",
+                "6. 強化檔案鎖定機制 (支援跨行程檢測)",
+                "7. 隱藏鎖定檔案避免干擾使用者",
+                "8. 系統穩定性增強");
+
+        addVersion("1.0.0-RELEASE", "2025-12-31",
+                "1. 實作資料欄位過濾查詢功能",
+                "2. 實作欄位資料新增/編輯/刪除功能",
+                "3. 實作欄位新增/刪除功能",
+                "4. 實作偏好設定功能",
+                "5. 實作日誌查看功能",
+                "6. 實作到期日提醒/過濾器欄位設定功能");
+    }
+
+    private void addVersion(String version, String date, String... changes) {
+        versionHistory.add(new VersionEntry(version, date, changes));
+    }
+
     /**
-     * 從 pom.xml 讀取版本號
+     * 從 pom.xml 讀取版本號，若無法讀取則使用版本歷史中的最新版
      */
     private String getVersion() {
+        // 先嘗試獲取 Maven 版本
+        String mavenVersion = null;
         try {
-            // 嘗試從 pom.properties 讀取（Maven 打包後會生成）
             java.util.Properties properties = new java.util.Properties();
             java.io.InputStream is = getClass().getResourceAsStream(
                     "/META-INF/maven/da.api/data-scout/pom.properties");
-
             if (is != null) {
                 properties.load(is);
                 is.close();
-                String version = properties.getProperty("version");
-                if (version != null && !version.isEmpty()) {
-                    return version;
-                }
+                mavenVersion = properties.getProperty("version");
             }
         } catch (Exception e) {
-            // 忽略錯誤，使用備用方案
+            // ignore
         }
 
-        // 備用方案：嘗試從 MANIFEST.MF 讀取
-        try {
-            Package pkg = getClass().getPackage();
-            String version = pkg.getImplementationVersion();
-            if (version != null && !version.isEmpty()) {
-                return version;
-            }
-        } catch (Exception e) {
-            // 忽略錯誤
+        // 如果 Maven 版本可用且有效，則使用它
+        if (mavenVersion != null && !mavenVersion.isEmpty() && !mavenVersion.startsWith("${")) {
+            return mavenVersion;
         }
 
-        // 如果都失敗，返回預設值
-        return "v1.0.0-RELEASE";
+        // 否則回傳版本歷史中的最新版
+        if (!versionHistory.isEmpty()) {
+            return versionHistory.get(0).version;
+        }
+
+        return "v1.0.0-RELEASE"; // Fallback
     }
 
     /**
      * 獲取構建日期
      */
     private String getBuildDate() {
-        try {
-            // 嘗試從 pom.properties 讀取構建時間
-            java.util.Properties properties = new java.util.Properties();
-            java.io.InputStream is = getClass().getResourceAsStream(
-                    "/META-INF/maven/da.api/data-scout/pom.properties");
-
-            if (is != null) {
-                properties.load(is);
-                is.close();
-                // Maven 不會自動生成 build.time，我們可以使用當前 JAR 的修改時間
-            }
-        } catch (Exception e) {
-            // 忽略錯誤
+        // 優先回傳版本歷史中最新版的日期
+        if (!versionHistory.isEmpty()) {
+            return versionHistory.get(0).date;
         }
 
-        // 嘗試從 JAR 檔案的修改時間獲取
-        try {
-            java.net.URL location = getClass().getProtectionDomain().getCodeSource().getLocation();
-            if (location != null) {
-                java.io.File jarFile = new java.io.File(location.toURI());
-                if (jarFile.exists()) {
-                    long lastModified = jarFile.lastModified();
-                    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
-                    return sdf.format(new java.util.Date(lastModified));
-                }
-            }
-        } catch (Exception e) {
-            // 忽略錯誤
-        }
-
-        // 如果都失敗，返回當前日期
+        // Fallback: 當前日期
         java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
         return sdf.format(new java.util.Date());
     }
 
     /**
-     * 獲取版本更新說明
+     * 動態生成版本更新說明
      */
     private String getUpdateNotes() {
-        return "【1.0.0-RELEASE 版本內容】\n" +
-                "1. 實作資料欄位過濾查詢功能 \n" +
-                "2. 實作欄位資料新增/編輯/刪除功能 \n" +
-                "3. 實作欄位新增/刪除功能 \n" +
-                "4. 實作偏好設定功能 \n" +
-                "5. 實作日誌查看功能 \n" +
-                "6. 實作到期日提醒/過濾器欄位設定功能";
+        if (versionHistory.isEmpty()) {
+            // 防止未初始化
+            initVersionHistory();
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (VersionEntry entry : versionHistory) {
+            sb.append("【").append(entry.version).append(" 版本內容】 (").append(entry.date).append(")\n");
+            for (String change : entry.changes) {
+                sb.append(change).append("\n");
+            }
+            sb.append("\n"); // 版本間空行
+        }
+        return sb.toString().trim();
     }
 
     private void openSettings() {

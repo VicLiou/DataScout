@@ -116,7 +116,7 @@ public class Panel {
                     } else {
                         // 外部變更
                         javax.swing.SwingUtilities.invokeLater(() -> {
-                            refreshData();
+                            reloadFromExternalChange();
                             da.api.util.LogManager.getInstance().info("偵測到外部檔案變更，已重新載入");
                         });
                     }
@@ -552,8 +552,15 @@ public class Panel {
     private void addTableContextMenu() {
         JPopupMenu popupMenu = new JPopupMenu();
 
+        // 美化選單樣式
+        popupMenu.setBackground(java.awt.Color.WHITE);
+        popupMenu.setBorder(javax.swing.BorderFactory.createCompoundBorder(
+                javax.swing.BorderFactory.createLineBorder(new java.awt.Color(229, 231, 235), 1, true),
+                javax.swing.BorderFactory.createEmptyBorder(5, 0, 5, 0)));
+
         // 複製儲存格內容
-        JMenuItem copyItem = new JMenuItem("複製");
+        JMenuItem copyItem = new JMenuItem("複製欄位");
+        styleMenuItem(copyItem);
         copyItem.addActionListener(e -> {
             int row = dataTable.getSelectedRow();
             int col = dataTable.getSelectedColumn();
@@ -566,8 +573,8 @@ public class Panel {
                 StringSelection selection = new StringSelection(text);
                 Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
 
-                JOptionPane.showMessageDialog(frameElement,
-                        "已複製: " + text,
+                da.api.util.StyledDialogs.showMessageDialog(frameElement,
+                        "已複製欄位資料",
                         "複製成功",
                         JOptionPane.INFORMATION_MESSAGE);
             }
@@ -575,6 +582,7 @@ public class Panel {
 
         // 複製整列
         JMenuItem copyRowItem = new JMenuItem("複製整列");
+        styleMenuItem(copyRowItem);
         copyRowItem.addActionListener(e -> {
             int row = dataTable.getSelectedRow();
 
@@ -594,7 +602,7 @@ public class Panel {
                 StringSelection selection = new StringSelection(sb.toString());
                 Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
 
-                JOptionPane.showMessageDialog(frameElement,
+                da.api.util.StyledDialogs.showMessageDialog(frameElement,
                         "已複製整列資料",
                         "複製成功",
                         JOptionPane.INFORMATION_MESSAGE);
@@ -633,6 +641,33 @@ public class Panel {
         });
     }
 
+    /**
+     * 美化選單項目樣式
+     */
+    private void styleMenuItem(JMenuItem menuItem) {
+        menuItem.setFont(new java.awt.Font("微軟正黑體", java.awt.Font.PLAIN, 14));
+        menuItem.setBackground(java.awt.Color.WHITE);
+        menuItem.setForeground(new java.awt.Color(31, 41, 55));
+        menuItem.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 15, 10, 15));
+        menuItem.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        menuItem.setOpaque(true);
+
+        // Hover 效果
+        menuItem.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                menuItem.setBackground(new java.awt.Color(243, 244, 246));
+                menuItem.setForeground(new java.awt.Color(59, 130, 246));
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                menuItem.setBackground(java.awt.Color.WHITE);
+                menuItem.setForeground(new java.awt.Color(31, 41, 55));
+            }
+        });
+    }
+
     private void refreshData() {
         allData = excelService.readAllData();
         currentData = new ArrayList<>(allData);
@@ -640,6 +675,87 @@ public class Panel {
             updateSearchOptions();
         }
         updateTable();
+    }
+
+    /**
+     * 處理外部檔案變更，重新載入欄位配置和資料
+     */
+    private void reloadFromExternalChange() {
+        try {
+            // 1. 重新讀取 Excel 的標題列
+            List<String> currentHeaders = excelService.readHeaders();
+
+            // 2. 檢查欄位是否有變更（新增或刪除）
+            boolean columnsChanged = false;
+            if (columnConfig != null) {
+                List<String> existingHeaders = columnConfig.getAllHeaders();
+
+                // 檢查欄位數量是否不同
+                if (currentHeaders.size() != existingHeaders.size()) {
+                    columnsChanged = true;
+                } else {
+                    // 檢查是否有新欄位被新增
+                    for (String header : currentHeaders) {
+                        if (!existingHeaders.contains(header)) {
+                            columnsChanged = true;
+                            break;
+                        }
+                    }
+
+                    // 檢查是否有欄位被刪除
+                    if (!columnsChanged) {
+                        for (String header : existingHeaders) {
+                            if (!currentHeaders.contains(header)) {
+                                columnsChanged = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } else {
+                // 如果沒有 columnConfig，表示需要初始化
+                columnsChanged = true;
+            }
+
+            // 3. 如果欄位有變更或欄位配置為空，需要更新 ColumnConfig
+            if (columnsChanged) {
+                // 從儲存的設定中重新載入 ColumnConfig
+                da.api.model.ColumnConfig savedConfig = appSettings.getColumnConfig(excelService.getFilePath());
+
+                if (savedConfig != null) {
+                    // 建立新的 ColumnConfig，保留原有的設定但更新所有欄位列表
+                    // ColumnConfig 建構子順序: expiryDateColumn, searchFilterColumns, allHeaders
+                    da.api.model.ColumnConfig updatedConfig = new da.api.model.ColumnConfig(
+                            savedConfig.getExpiryDateColumn(),
+                            savedConfig.getSearchFilterColumns(),
+                            currentHeaders);
+
+                    this.columnConfig = updatedConfig;
+                    this.excelService.setColumnConfig(updatedConfig);
+
+                    // 儲存更新後的配置
+                    appSettings.saveColumnConfig(excelService.getFilePath(), updatedConfig);
+
+                    // 重建過濾器面板
+                    rebuildFiltersPanel();
+                } else {
+                    // 如果沒有儲存的配置，建立預設配置
+                    da.api.model.ColumnConfig newConfig = new da.api.model.ColumnConfig(null, null, currentHeaders);
+                    this.columnConfig = newConfig;
+                    this.excelService.setColumnConfig(newConfig);
+                    appSettings.saveColumnConfig(excelService.getFilePath(), newConfig);
+                    rebuildFiltersPanel();
+                }
+            }
+
+            // 4. 重新載入資料
+            refreshData();
+
+        } catch (Exception e) {
+            da.api.util.LogManager.getInstance().error("重新載入外部變更時發生錯誤: " + e.getMessage());
+            // 如果發生錯誤，至少嘗試重新載入資料
+            refreshData();
+        }
     }
 
     private void updateSearchOptions() {

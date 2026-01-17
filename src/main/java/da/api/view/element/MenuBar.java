@@ -372,6 +372,10 @@ public class MenuBar {
     private void initVersionHistory() {
         // 請在此處新增版本記錄 (建議最新的版本放最上面)
 
+        addVersion("2.0.1-RELEASE", "2026-01-17",
+                "1. 優化使用者介面互動體驗",
+                "2. 修正於外部檔案進行欄位新增及刪除時無法自動更新的問題");
+
         addVersion("2.0.0-RELEASE", "2026-01-12",
                 "1. UI介面優化提升使用者體驗",
                 "2. 修正檔案重複開啟的保護機制",
